@@ -4014,7 +4014,7 @@ void window_clip(unsigned int data, unsigned int sw)
   int w = hf ^ 1;
 
   /* Display width (16 or 20 columns) */
-  sw = 16 + (sw << 2);
+  sw = 25;
 
   if(hp)
   {
@@ -4123,13 +4123,13 @@ void render_line(int line)
     render_obj(line & 1);
 
     /* Left-most column blanking */
-    if (reg[0] & 0x20)
-    {
-      if (system_hw > SYSTEM_SGII)
-      {
-        memset(&linebuf[0][0x20], 0x40, 8);
-      }
-    }
+    // if (reg[0] & 0x20)
+    // {
+    //   if (system_hw > SYSTEM_SGII)
+    //   {
+    //     memset(&linebuf[0][0x20], 0x40, 8);
+    //   }
+    // }
 
     /* Parse sprites for next line */
     if (line < (bitmap.viewport.h - 1))
@@ -4138,11 +4138,11 @@ void render_line(int line)
     }
 
     /* Horizontal borders */
-    if (bitmap.viewport.x > 0)
-    {
-      memset(&linebuf[0][0x20 - bitmap.viewport.x], 0x40, bitmap.viewport.x);
-      memset(&linebuf[0][0x20 + bitmap.viewport.w], 0x40, bitmap.viewport.x);
-    }
+    // if (bitmap.viewport.x > 0)
+    // {
+    //   memset(&linebuf[0][0x20 - bitmap.viewport.x], 0x40, bitmap.viewport.x);
+    //   memset(&linebuf[0][0x20 + bitmap.viewport.w], 0x40, bitmap.viewport.x);
+    // }
   }
   else
   {

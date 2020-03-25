@@ -8,7 +8,7 @@
 #define SOUND_FREQUENCY 48000
 #define SOUND_SAMPLES_SIZE  2048
 
-#define VIDEO_WIDTH  320
+#define VIDEO_WIDTH  398
 #define VIDEO_HEIGHT 240
 
 int joynum = 0;
@@ -271,7 +271,7 @@ static Uint32 sdl_sync_timer_callback(Uint32 interval, void *param)
     SDL_UserEvent userevent;
 
     userevent.type = SDL_USEREVENT;
-    userevent.code = vdp_pal ? (sdl_video.frames_rendered / 3) : sdl_video.frames_rendered;
+    userevent.code = sdl_video.frames_rendered;
     userevent.data1 = NULL;
     userevent.data2 = NULL;
     sdl_sync.ticks = sdl_video.frames_rendered = 0;
@@ -428,7 +428,7 @@ static int sdl_control_update(SDL_Keycode keystate)
           else
           {
             status &= ~1;
-            lines_per_frame = 262;
+            lines_per_frame = 313;
           }
 
           /* reinitialize VC max value */
@@ -857,8 +857,10 @@ int main (int argc, char **argv)
   if(use_sound) SDL_PauseAudio(0);
 
   /* 3 frames = 50 ms (60hz) or 60 ms (50hz) */
+  /* heyjoeway: excuse me? 3 frames? why the fuck are we waiting
+      frames to update the fucking screen? NO */
   if(sdl_sync.sem_sync)
-    SDL_AddTimer(vdp_pal ? 60 : 50, sdl_sync_timer_callback, NULL);
+    SDL_AddTimer(vdp_pal ? 20 : 16, sdl_sync_timer_callback, NULL);
 
   /* emulation loop */
   while(running)
@@ -893,10 +895,11 @@ int main (int argc, char **argv)
     sdl_video_update();
     sdl_sound_update(use_sound);
 
-    if(!turbo_mode && sdl_sync.sem_sync && sdl_video.frames_rendered % 3 == 0)
-    {
-      SDL_SemWait(sdl_sync.sem_sync);
-    }
+    // if(!turbo_mode && sdl_sync.sem_sync)
+    // {
+    //   SDL_SemWait(sdl_sync.sem_sync);
+    // }
+    SDL_Delay(16);
   }
 
   if (system_hw == SYSTEM_MCD)
