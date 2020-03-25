@@ -33,7 +33,7 @@ CFLAGS    = `sdl2-config --cflags` -march=native -O6 -fomit-frame-pointer -Wall 
 #-g -ggdb -pg
 #-fomit-frame-pointer
 LDFLAGS   = -static
-DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBTREMOR -DUSE_LIBCHDR -DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT
+DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBTREMOR -DUSE_LIBCHDR -DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT -DHAVE_OVERCLOCK
 
 ifneq ($(OS),Windows_NT)
 DEFINES += -DHAVE_ALLOCA_H
@@ -41,7 +41,7 @@ endif
 
 SRCDIR    = ../core
 INCLUDES  = -I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k -I$(SRCDIR)/sound -I$(SRCDIR)/input_hw -I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp -I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc -I$(SRCDIR)/tremor -I$(SRCDIR)/../sdl -I$(SRCDIR)/../sdl/sdl2
-LIBS	  = -Wl,-Bstatic `sdl2-config --static-libs` -Wl,-Bdynamic -lz -lm
+LIBS	  = -Wl,-Bstatic `sdl2-config --libs` -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -Wl,-Bdynamic -lz -lm
 
 CHDLIBDIR = $(SRCDIR)/cd_hw/libchdr
 
@@ -77,6 +77,7 @@ OBJECTS	+=      $(OBJDIR)/input.o	  \
 
 OBJECTS	+=      $(OBJDIR)/sound.o	\
 		$(OBJDIR)/psg.o         \
+		$(OBJDIR)/opll.o         \
 		$(OBJDIR)/ym2413.o      \
 		$(OBJDIR)/ym3438.o      \
 		$(OBJDIR)/ym2612.o    

@@ -22,7 +22,12 @@ void set_config_defaults(void)
   config.lp_range       = 0x7fff; /* 0.6 in 0.16 fixed point */
   config.ym2612         = YM2612_DISCRETE;
   config.ym2413         = 2; /* = AUTO (0 = always OFF, 1 = always ON) */
-  config.ym3438         = 0;
+#ifdef HAVE_YM3438_CORE
+   config.ym3438         = 0;
+#endif
+#ifdef HAVE_OPLL_CORE
+   config.opll           = 0;
+#endif
   config.mono           = 0;
 
   /* system options */
@@ -36,6 +41,10 @@ void set_config_defaults(void)
   config.lock_on        = 0; /* = OFF (can be TYPE_SK, TYPE_GG & TYPE_AR) */
   config.ntsc           = 0;
   config.lcd            = 0; /* 0.8 fixed point */
+#ifdef HAVE_OVERCLOCK
+   config.overclock      = 200;
+#endif
+   config.no_sprite_limit = 1;
 
   /* display options */
   config.overscan = 0;       /* 3 = all borders (0 = no borders , 1 = vertical borders only, 2 = horizontal borders only) */

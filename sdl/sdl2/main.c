@@ -5,11 +5,19 @@
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
 
+/* Some games appear to calibrate music playback speed for PAL/NTSC by
+   actually counting CPU cycles per frame during startup, resulting in
+   hilariously fast music.  Delay overclocking for a while as a
+   workaround */
+#ifdef HAVE_OVERCLOCK
+static uint32_t overclock_delay;
+#endif
+
 #define SOUND_FREQUENCY 48000
 #define SOUND_SAMPLES_SIZE  2048
 
 #define VIDEO_WIDTH  398
-#define VIDEO_HEIGHT 240
+#define VIDEO_HEIGHT 224
 
 int joynum = 0;
 
@@ -128,6 +136,14 @@ static void sdl_sound_close()
     free(sdl_sound.buffer);
 }
 
+static int sdl_on_resize(void* data, SDL_Event* event) {
+  if (event->type == SDL_WINDOWEVENT &&
+      event->window.event == SDL_WINDOWEVENT_RESIZED) {
+      bitmap.viewport.changed = 1;
+  }
+  return 0;
+}
+
 /* video */
 md_ntsc_t *md_ntsc;
 sms_ntsc_t *sms_ntsc;
@@ -153,6 +169,9 @@ static int sdl_video_init()
   sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(surface_format), surface_format);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
+
+  SDL_SetWindowResizable(sdl_video.window, SDL_TRUE);
+  SDL_AddEventWatch(sdl_on_resize, sdl_video.window);
   return 1;
 }
 
@@ -174,6 +193,7 @@ static void sdl_video_update()
   /* viewport size changed */
   if(bitmap.viewport.changed & 1)
   {
+    sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
     bitmap.viewport.changed &= ~1;
 
     /* source bitmap */
@@ -193,10 +213,15 @@ static void sdl_video_update()
     }
 
     /* destination bitmap */
-    sdl_video.drect.w = sdl_video.srect.w;
-    sdl_video.drect.h = sdl_video.srect.h;
-    sdl_video.drect.x = (sdl_video.surf_screen->w - sdl_video.drect.w) / 2;
-    sdl_video.drect.y = (sdl_video.surf_screen->h - sdl_video.drect.h) / 2;
+    // sdl_video.drect.w = sdl_video.srect.w;
+    // sdl_video.drect.h = sdl_video.srect.h;
+    // sdl_video.drect.x = (sdl_video.surf_screen->w - sdl_video.drect.w) / 2;
+    // sdl_video.drect.y = (sdl_video.surf_screen->h - sdl_video.drect.h) / 2;
+
+    sdl_video.drect.w = sdl_video.surf_screen->w;
+    sdl_video.drect.h = sdl_video.surf_screen->h;
+    sdl_video.drect.x = 0;
+    sdl_video.drect.y = 0;
 
     /* clear destination surface */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
@@ -242,7 +267,7 @@ static void sdl_video_update()
 #endif
   }
 
-  SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
+  SDL_BlitScaled(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
   SDL_UpdateWindowSurface(sdl_video.window);
 
   ++sdl_video.frames_rendered;
@@ -265,7 +290,7 @@ static Uint32 sdl_sync_timer_callback(Uint32 interval, void *param)
 {
   SDL_SemPost(sdl_sync.sem_sync);
   sdl_sync.ticks++;
-  if (sdl_sync.ticks == (vdp_pal ? 50 : 20))
+  if (sdl_sync.ticks == (vdp_pal ? 50 : 60))
   {
     SDL_Event event;
     SDL_UserEvent userevent;
@@ -333,7 +358,6 @@ static int sdl_control_update(SDL_Keycode keystate)
       {
         fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN);
         SDL_SetWindowFullscreen(sdl_video.window, fullscreen);
-        sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
         bitmap.viewport.changed = 1;
         break;
       }
@@ -699,6 +723,30 @@ int sdl_input_update(void)
   return 1;
 }
 
+#ifdef HAVE_OVERCLOCK
+static void update_overclock(void)
+{
+#ifdef M68K_OVERCLOCK_SHIFT
+    m68k.cycle_ratio = 1 << M68K_OVERCLOCK_SHIFT;
+#endif
+#ifdef Z80_OVERCLOCK_SHIFT
+    z80_cycle_ratio = 1 << Z80_OVERCLOCK_SHIFT;
+#endif
+    if (overclock_delay == 0)
+    {
+      /* Cycle ratios multiply per-instruction cycle counts, so use
+         reciprocals */
+#ifdef M68K_OVERCLOCK_SHIFT
+      if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
+        m68k.cycle_ratio = (100 << M68K_OVERCLOCK_SHIFT) / 200;
+#endif
+#ifdef Z80_OVERCLOCK_SHIFT
+      if ((system_hw & SYSTEM_PBC) != SYSTEM_MD)
+        z80_cycle_ratio = (100 << Z80_OVERCLOCK_SHIFT) / 200;
+#endif
+    }
+}
+#endif
 
 int main (int argc, char **argv)
 {
@@ -858,13 +906,25 @@ int main (int argc, char **argv)
 
   /* 3 frames = 50 ms (60hz) or 60 ms (50hz) */
   /* heyjoeway: excuse me? 3 frames? why the fuck are we waiting
-      frames to update the fucking screen? NO */
-  if(sdl_sync.sem_sync)
-    SDL_AddTimer(vdp_pal ? 20 : 16, sdl_sync_timer_callback, NULL);
+      frames to update the fucking screen? NO
+      actually, you know what, this whole fucking timing methods sucks */
+  // if(sdl_sync.sem_sync)
+  //   SDL_AddTimer(vdp_pal ? 20 : 16, sdl_sync_timer_callback, NULL);
+
+  // Uint64 prev = 0, now = 0;
+
+  long double framerateMilliseconds = 1000.0 / 60.0;
+  unsigned int vsyncMultiple;
+
 
   /* emulation loop */
   while(running)
   {
+    // now = SDL_GetPerformanceCounter();
+    // double frametime = (double)((now - prev)*1000) / SDL_GetPerformanceFrequency();
+    // if (frametime < 16.66667) continue;
+    // prev = now;
+
     SDL_Event event;
     if (SDL_PollEvent(&event))
     {
@@ -892,14 +952,29 @@ int main (int argc, char **argv)
       }
     }
 
+    #ifdef HAVE_OVERCLOCK
+      /* update overclock delay */
+      if (overclock_delay && --overclock_delay == 0)
+          update_overclock();
+    #endif
+
     sdl_video_update();
     sdl_sound_update(use_sound);
 
-    // if(!turbo_mode && sdl_sync.sem_sync)
-    // {
-    //   SDL_SemWait(sdl_sync.sem_sync);
-    // }
-    SDL_Delay(16);
+    static long double timePrev;
+    const uint32_t timeNow = SDL_GetTicks();
+    const long double timeNext = timePrev + framerateMilliseconds;
+    
+    if (timeNow >= timePrev + 100)
+    {
+      timePrev = (long double)timeNow;
+    }
+    else
+    {
+      if (timeNow < timeNext)
+        SDL_Delay(timeNext - timeNow);
+      timePrev += framerateMilliseconds;
+    }
   }
 
   if (system_hw == SYSTEM_MCD)

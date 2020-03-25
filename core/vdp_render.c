@@ -43,7 +43,13 @@
 #include "md_ntsc.h"
 #include "sms_ntsc.h"
 
-#ifndef HAVE_NO_SPRITE_LIMIT
+#ifdef HAVE_NO_SPRITE_LIMIT
+#define MAX_SPRITES_PER_LINE 80
+#define TMS_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 4)
+#define MODE4_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 8)
+#define MODE5_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : (bitmap.viewport.w >> 4))
+#define MODE5_MAX_SPRITE_PIXELS (config.no_sprite_limit ? MAX_SPRITES_PER_LINE * 32 : max_sprite_pixels)
+#else
 #define MAX_SPRITES_PER_LINE 20
 #define TMS_MAX_SPRITES_PER_LINE 4
 #define MODE4_MAX_SPRITES_PER_LINE 8
