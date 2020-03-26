@@ -1518,7 +1518,7 @@ void render_bg_m5(int line)
   uint32 atex, atbuf, *src, *dst;
 
   /* Common data */
-  uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)] + 32;
   uint32 yscroll      = *(uint32 *)&vsram[0];
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -3192,7 +3192,7 @@ void render_obj_m5(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80;
+    xpos = xpos - 0x80 + 0x20;
 
     /* Sprite size */
     temp = object_info->size;

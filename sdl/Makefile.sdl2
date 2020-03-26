@@ -29,7 +29,7 @@
 NAME	  = gen_sdl2
 
 CC        = gcc
-CFLAGS    = `sdl2-config --cflags` -march=native -O6 -fomit-frame-pointer -Wall -Wno-strict-aliasing -std=c99
+CFLAGS    = `sdl2-config --cflags` -march=native -fomit-frame-pointer -Wall -Wno-strict-aliasing -std=c99
 #-g -ggdb -pg
 #-fomit-frame-pointer
 LDFLAGS   = -static
