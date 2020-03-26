@@ -1549,19 +1549,19 @@ void render_bg_m5(int line)
   /* Pattern row index */
   v_line = (v_line & 7) << 3;
 
-  if(shift)
-  {
+  // if(shift)
+  // {
     /* Plane B line buffer */
-    dst = (uint32 *)&linebuf[0][0x10 + shift];
+    dst = (uint32 *)&linebuf[0][0x10 + shift + 40];
 
     atbuf = nt[(index - 1) & pf_col_mask];
     DRAW_COLUMN(atbuf, v_line)
-  }
-  else
-  {
+  // }
+  // else
+  // {
     /* Plane B line buffer */
-    dst = (uint32 *)&linebuf[0][0x20 + 40];
-  }
+    // dst = (uint32 *)&linebuf[0][0x20];
+  // }
 
   for(column = 0; column < end; column++, index++)
   {
