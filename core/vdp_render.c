@@ -1518,7 +1518,10 @@ void render_bg_m5(int line)
   uint32 atex, atbuf, *src, *dst;
 
   /* Common data */
-  uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)] + 40;
+  uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = *(uint32 *)&vsram[0];
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -1552,7 +1555,7 @@ void render_bg_m5(int line)
   // if(shift)
   // {
     /* Plane B line buffer */
-    dst = (uint32 *)&linebuf[0][0x10 + shift + 40];
+    dst = (uint32 *)&linebuf[0][0x10 + shift];
 
     atbuf = nt[(index - 1) & pf_col_mask];
     DRAW_COLUMN(atbuf, v_line)

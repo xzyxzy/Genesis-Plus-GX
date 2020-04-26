@@ -824,7 +824,7 @@ static double calculate_display_aspect_ratio(void)
          return (6.0 / 5.0) * ((double)vwidth / (double)vheight);
    }
 
-   is_h40  = bitmap.viewport.w == 320; /* Could be read directly from the register as well. */
+   is_h40  = bitmap.viewport.w >= 320; /* Could be read directly from the register as well. */
    dotrate = system_clock / (is_h40 ? 8.0 : 10.0);
 
    if (config.aspect_ratio == 1) /* Force NTSC PAR */

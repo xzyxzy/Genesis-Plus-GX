@@ -5,12 +5,36 @@
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#define STATIC_ASSERT(name, test) typedef struct { int assert_[(test)?1:-1]; } assert_ ## name ## _
+#define M68K_MAX_CYCLES 1107
+#define Z80_MAX_CYCLES 345
+#define OVERCLOCK_FRAME_DELAY 100
+
+#ifdef M68K_OVERCLOCK_SHIFT
+#define HAVE_OVERCLOCK
+STATIC_ASSERT(m68k_overflow,
+              M68K_MAX_CYCLES <= UINT_MAX >> (M68K_OVERCLOCK_SHIFT + 1));
+#endif
+
+#ifdef Z80_OVERCLOCK_SHIFT
+#ifndef HAVE_OVERCLOCK
+#define HAVE_OVERCLOCK
+#endif
+STATIC_ASSERT(z80_overflow,
+              Z80_MAX_CYCLES <= UINT_MAX >> (Z80_OVERCLOCK_SHIFT + 1));
+#endif
+
 /* Some games appear to calibrate music playback speed for PAL/NTSC by
    actually counting CPU cycles per frame during startup, resulting in
    hilariously fast music.  Delay overclocking for a while as a
    workaround */
 #ifdef HAVE_OVERCLOCK
 static uint32_t overclock_delay;
+static int overclock_enable = 1;
 #endif
 
 #define SOUND_FREQUENCY 48000
@@ -18,6 +42,8 @@ static uint32_t overclock_delay;
 
 #define VIDEO_WIDTH  398
 #define VIDEO_HEIGHT 224
+
+#define WINDOW_SCALE 3
 
 int joynum = 0;
 
@@ -29,8 +55,11 @@ int fullscreen  = 0; /* SDL_WINDOW_FULLSCREEN */
 
 struct {
   SDL_Window* window;
+  SDL_Renderer* renderer;
   SDL_Surface* surf_screen;
   SDL_Surface* surf_bitmap;
+  SDL_Texture* surf_texture;
+  SDL_Texture* surf_texture_test;
   SDL_Rect srect;
   SDL_Rect drect;
   Uint32 frames_rendered;
@@ -164,7 +193,8 @@ static int sdl_video_init()
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
     return 0;
   }
-  sdl_video.window = SDL_CreateWindow("Genesis Plus GX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH, VIDEO_HEIGHT, fullscreen);
+  sdl_video.window = SDL_CreateWindow("Loading...", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH * WINDOW_SCALE, VIDEO_HEIGHT * WINDOW_SCALE, fullscreen | SDL_WINDOW_ALLOW_HIGHDPI);
+  sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
   sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(surface_format), surface_format);
   sdl_video.frames_rendered = 0;
@@ -218,10 +248,18 @@ static void sdl_video_update()
     // sdl_video.drect.x = (sdl_video.surf_screen->w - sdl_video.drect.w) / 2;
     // sdl_video.drect.y = (sdl_video.surf_screen->h - sdl_video.drect.h) / 2;
 
-    sdl_video.drect.w = sdl_video.surf_screen->w;
     sdl_video.drect.h = sdl_video.surf_screen->h;
-    sdl_video.drect.x = 0;
-    sdl_video.drect.y = 0;
+
+    if (1) { // Integer scaling
+      sdl_video.drect.h = (sdl_video.drect.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
+      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+    } else {
+      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    }
+
+    sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
+    sdl_video.drect.x = (sdl_video.surf_screen->w / 2.0) - (sdl_video.drect.w / 2.0);
+    sdl_video.drect.y = (sdl_video.surf_screen->h / 2.0) - (sdl_video.drect.h / 2.0);;
 
     /* clear destination surface */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
@@ -267,8 +305,11 @@ static void sdl_video_update()
 #endif
   }
 
-  SDL_BlitScaled(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-  SDL_UpdateWindowSurface(sdl_video.window);
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+  SDL_Texture* texture_temp = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
+  SDL_RenderCopy(sdl_video.renderer, texture_temp, &sdl_video.srect, &sdl_video.drect);
+  SDL_DestroyTexture(texture_temp);
+  SDL_RenderPresent(sdl_video.renderer);
 
   ++sdl_video.frames_rendered;
 }
@@ -347,49 +388,29 @@ static int sdl_control_update(SDL_Keycode keystate)
         break;
       }
 
-      case SDLK_F1:
+      case SDLK_F4:
       {
-        if (SDL_ShowCursor(-1)) SDL_ShowCursor(0);
-        else SDL_ShowCursor(1);
-        break;
-      }
-
-      case SDLK_F2:
-      {
-        fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN);
+        fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP );
         SDL_SetWindowFullscreen(sdl_video.window, fullscreen);
         bitmap.viewport.changed = 1;
         break;
       }
 
-      case SDLK_F3:
-      {
-        if (config.bios == 0) config.bios = 3;
-        else if (config.bios == 3) config.bios = 1;
-        break;
-      }
+      // case SDLK_F4:
+      // {
+      //   if (!turbo_mode) use_sound ^= 1;
+      //   break;
+      // }
 
-      case SDLK_F4:
-      {
-        if (!turbo_mode) use_sound ^= 1;
-        break;
-      }
-
-      case SDLK_F5:
-      {
-        log_error ^= 1;
-        break;
-      }
-
-      case SDLK_F6:
-      {
-        if (!use_sound)
-        {
-          turbo_mode ^=1;
-          sdl_sync.ticks = 0;
-        }
-        break;
-      }
+      // case SDLK_F6:
+      // {
+      //   if (!use_sound)
+      //   {
+      //     turbo_mode ^=1;
+      //     sdl_sync.ticks = 0;
+      //   }
+      //   break;
+      // }
 
       case SDLK_F7:
       {
@@ -417,81 +438,11 @@ static int sdl_control_update(SDL_Keycode keystate)
         break;
       }
 
-      case SDLK_F9:
-      {
-        config.region_detect = (config.region_detect + 1) % 5;
-        get_region(0);
-
-        /* framerate has changed, reinitialize audio timings */
-        audio_init(snd.sample_rate, 0);
-
-        /* system with region BIOS should be reinitialized */
-        if ((system_hw == SYSTEM_MCD) || ((system_hw & SYSTEM_SMS) && (config.bios & 1)))
-        {
-          system_init();
-          system_reset();
-        }
-        else
-        {
-          /* reinitialize I/O region register */
-          if (system_hw == SYSTEM_MD)
-          {
-            io_reg[0x00] = 0x20 | region_code | (config.bios & 1);
-          }
-          else
-          {
-            io_reg[0x00] = 0x80 | (region_code >> 1);
-          }
-
-          /* reinitialize VDP */
-          if (vdp_pal)
-          {
-            status |= 1;
-            lines_per_frame = 313;
-          }
-          else
-          {
-            status &= ~1;
-            lines_per_frame = 313;
-          }
-
-          /* reinitialize VC max value */
-          switch (bitmap.viewport.h)
-          {
-            case 192:
-              vc_max = vc_table[0][vdp_pal];
-              break;
-            case 224:
-              vc_max = vc_table[1][vdp_pal];
-              break;
-            case 240:
-              vc_max = vc_table[3][vdp_pal];
-              break;
-          }
-        }
-        break;
-      }
-
-      case SDLK_F10:
-      {
-        gen_reset(0);
-        break;
-      }
-
-      case SDLK_F11:
-      {
-        config.overscan =  (config.overscan + 1) & 3;
-        if ((system_hw == SYSTEM_GG) && !config.gg_extra)
-        {
-          bitmap.viewport.x = (config.overscan & 2) ? 14 : -48;
-        }
-        else
-        {
-          bitmap.viewport.x = (config.overscan & 2) * 7;
-        }
-        bitmap.viewport.changed = 3;
-        break;
-      }
+      // case SDLK_F10:
+      // {
+      //   gen_reset(0);
+      //   break;
+      // }
 
       case SDLK_F12:
       {
@@ -754,13 +705,13 @@ int main (int argc, char **argv)
   int running = 1;
 
   /* Print help if no game specified */
-  if(argc < 2)
-  {
-    char caption[256];
-    sprintf(caption, "Genesis Plus GX\\SDL\nusage: %s gamename\n", argv[0]);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Information", caption, sdl_video.window);
-    return 1;
-  }
+  // if(argc < 2)
+  // {
+  //   char caption[256];
+  //   sprintf(caption, "Genesis Plus GX\\SDL\nusage: %s gamename\n", argv[0]);
+  //   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Information", caption, sdl_video.window);
+  //   return 1;
+  // }
 
   /* set default config */
   error_init();
@@ -824,14 +775,25 @@ int main (int argc, char **argv)
   SDL_UnlockSurface(sdl_video.surf_bitmap);
   bitmap.viewport.changed = 3;
 
+  char * rom_path = argv[1];
+  if (rom_path == NULL) rom_path = "./rom.bin";
+
   /* Load game file */
-  if(!load_rom(argv[1]))
+  if(!load_rom(rom_path))
   {
     char caption[256];
-    sprintf(caption, "Error loading file `%s'.", argv[1]);
+    sprintf(caption, "Error loading file `%s'.", rom_path);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", caption, sdl_video.window);
     return 1;
   }
+
+  char caption[100];
+  sprintf(caption,"%s", rominfo.international);
+  SDL_SetWindowTitle(sdl_video.window, caption);
+
+#ifdef HAVE_OVERCLOCK
+    overclock_delay = OVERCLOCK_FRAME_DELAY;
+#endif
 
   /* initialize system hardware */
   audio_init(SOUND_FREQUENCY, 0);
@@ -904,15 +866,6 @@ int main (int argc, char **argv)
 
   if(use_sound) SDL_PauseAudio(0);
 
-  /* 3 frames = 50 ms (60hz) or 60 ms (50hz) */
-  /* heyjoeway: excuse me? 3 frames? why the fuck are we waiting
-      frames to update the fucking screen? NO
-      actually, you know what, this whole fucking timing methods sucks */
-  // if(sdl_sync.sem_sync)
-  //   SDL_AddTimer(vdp_pal ? 20 : 16, sdl_sync_timer_callback, NULL);
-
-  // Uint64 prev = 0, now = 0;
-
   long double framerateMilliseconds = 1000.0 / 60.0;
   unsigned int vsyncMultiple;
 
@@ -920,24 +873,11 @@ int main (int argc, char **argv)
   /* emulation loop */
   while(running)
   {
-    // now = SDL_GetPerformanceCounter();
-    // double frametime = (double)((now - prev)*1000) / SDL_GetPerformanceFrequency();
-    // if (frametime < 16.66667) continue;
-    // prev = now;
-
     SDL_Event event;
     if (SDL_PollEvent(&event))
     {
       switch(event.type)
       {
-        case SDL_USEREVENT:
-        {
-          char caption[100];
-          sprintf(caption,"Genesis Plus GX - %d fps - %s", event.user.code, (rominfo.international[0] != 0x20) ? rominfo.international : rominfo.domestic);
-          SDL_SetWindowTitle(sdl_video.window, caption);
-          break;
-        }
-
         case SDL_QUIT:
         {
           running = 0;
@@ -954,7 +894,7 @@ int main (int argc, char **argv)
 
     #ifdef HAVE_OVERCLOCK
       /* update overclock delay */
-      if (overclock_delay && --overclock_delay == 0)
+      if (overclock_enable && overclock_delay && --overclock_delay == 0)
           update_overclock();
     #endif
 
@@ -1026,3 +966,11 @@ int main (int argc, char **argv)
 
   return 0;
 }
+
+#ifdef _WIN32
+int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
+{
+    SetProcessDPIAware();
+    return main(__argc, __argv);
+}
+#endif

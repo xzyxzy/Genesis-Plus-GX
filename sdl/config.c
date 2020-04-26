@@ -42,7 +42,7 @@ void set_config_defaults(void)
   config.ntsc           = 0;
   config.lcd            = 0; /* 0.8 fixed point */
 #ifdef HAVE_OVERCLOCK
-   config.overclock      = 200;
+   config.overclock      = 100;
 #endif
    config.no_sprite_limit = 1;
 
