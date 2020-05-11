@@ -27,13 +27,39 @@
 # -DHOOK_CPU         : enable CPU hooks
 
 NAME	  = gen_sdl2
-
 CC        = gcc
-CFLAGS    = `sdl2-config --cflags` -march=native -fomit-frame-pointer -Wall -Wno-strict-aliasing -std=c99
+PKGCONFIG = pkg-config
+
+ifeq ($(OS),Windows_NT)
+	WINDOWS = 1
+endif
+
+ifeq ($(SWITCH), 1)
+	ifeq ($(strip $(DEVKITPRO)),)
+		$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
+	endif
+
+	WINDOWS = 0
+
+	include $(DEVKITPRO)/libnx/switch_rules
+	INCLUDES += -I$(LIBNX)/include -I$(PORTLIBS)/include/SDL2 -I$(PORTLIBS)/include
+
+	CFLAGS += -DARM -march=armv8-a -mtune=cortex-a57 -mtp=soft -DLSB_FIRST -DBYTE_ORDER=LITTLE_ENDIAN -DALIGN_LONG -DALIGN_WORD -DM68K_OVERCLOCK_SHIFT=20 -DHAVE_ZLIB -DSWITCH -fPIE -Wl,--allow-multiple-definition -specs=$(DEVKITPRO)/libnx/switch.specs  $(INCLUDE)
+	LIBS += -L$(LIBNX)/lib -lnx -lm
+	PKGCONFIG = $(DEVKITPRO)/portlibs/switch/bin/aarch64-none-elf-pkg-config
+
+	ifdef ENABLE_NXLINK
+		CXXFLAGS += -DENABLE_NXLINK
+	endif
+
+	CC = $(CXX)
+endif
+
+CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer sdl2 zlib flac vorbis vorbisfile` -fomit-frame-pointer -Wall -Wno-strict-aliasing -Wno-narrowing -fpermissive -static
 #-g -ggdb -pg
 #-fomit-frame-pointer
-LDFLAGS   = -static
-DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBTREMOR -DUSE_LIBCHDR -DMAXROMSIZE=33554432 \
+LDFLAGS   = $(CFLAGS)
+DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS -DUSE_LIBCHDR -DMAXROMSIZE=33554432 \
 	-DHAVE_NO_SPRITE_LIMIT \
 	-DM68K_OVERCLOCK_SHIFT=20
 
@@ -42,8 +68,14 @@ DEFINES += -DHAVE_ALLOCA_H
 endif
 
 SRCDIR    = ../core
-INCLUDES  = -I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k -I$(SRCDIR)/sound -I$(SRCDIR)/input_hw -I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp -I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc -I$(SRCDIR)/tremor -I$(SRCDIR)/../sdl -I$(SRCDIR)/../sdl/sdl2
-LIBS	  = `sdl2-config --libs --static-libs` -static -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lz -lm
+INCLUDES  += -I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k -I$(SRCDIR)/sound -I$(SRCDIR)/input_hw -I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp -I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc -I$(SRCDIR)/../sdl -I$(SRCDIR)/../sdl/sdl2
+LIBS	  += `$(PKGCONFIG) --static --libs SDL2_mixer sdl2 zlib flac vorbis vorbisfile`
+
+ifeq ($(WINDOWS), 1)
+	LIBS += -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lz -lm
+endif
+
+INCLUDES += $(LIBS)
 
 CHDLIBDIR = $(SRCDIR)/cd_hw/libchdr
 
@@ -112,24 +144,25 @@ OBJECTS	+=	$(OBJDIR)/sms_ntsc.o	\
 OBJECTS	+=	$(OBJDIR)/main.o	\
 		$(OBJDIR)/config.o	\
 		$(OBJDIR)/error.o	\
+		$(OBJDIR)/ioapi.o       \
 		$(OBJDIR)/unzip.o       \
 		$(OBJDIR)/fileio.o	
 
-OBJECTS	+=	$(OBJDIR)/bitwise.o	 \
-		$(OBJDIR)/block.o      \
-		$(OBJDIR)/codebook.o   \
-		$(OBJDIR)/floor0.o     \
-		$(OBJDIR)/floor1.o     \
-		$(OBJDIR)/framing.o    \
-		$(OBJDIR)/info.o       \
-		$(OBJDIR)/mapping0.o   \
-		$(OBJDIR)/mdct.o       \
-		$(OBJDIR)/registry.o   \
-		$(OBJDIR)/res012.o     \
-		$(OBJDIR)/sharedbook.o \
-		$(OBJDIR)/synthesis.o  \
-		$(OBJDIR)/vorbisfile.o \
-		$(OBJDIR)/window.o
+#OBJECTS	+=	$(OBJDIR)/bitwise.o	 \
+#		$(OBJDIR)/block.o      \
+#		$(OBJDIR)/codebook.o   \
+#		$(OBJDIR)/floor0.o     \
+#		$(OBJDIR)/floor1.o     \
+#		$(OBJDIR)/framing.o    \
+#		$(OBJDIR)/info.o       \
+#		$(OBJDIR)/mapping0.o   \
+#		$(OBJDIR)/mdct.o       \
+#		$(OBJDIR)/registry.o   \
+#		$(OBJDIR)/res012.o     \
+#		$(OBJDIR)/sharedbook.o \
+#		$(OBJDIR)/synthesis.o  \
+#		$(OBJDIR)/vorbisfile.o \
+#		$(OBJDIR)/window.o
 
 OBJECTS	+=	$(OBJDIR)/bitstream.o		\
 		$(OBJDIR)/chd.o			\
@@ -150,11 +183,19 @@ OBJECTS	+=	$(OBJDIR)/bitstream.o		\
 		$(OBJDIR)/LzmaDec.o		\
 		$(OBJDIR)/LzmaEnc.o		\
 
-ifeq ($(OS),Windows_NT)
+ifeq ($(WINDOWS), 1)
 OBJECTS	+=	$(OBJDIR)/icon.o
 endif
 
+ifeq ($(SWITCH), 1)
+all: $(NAME).nro
+
+$(NAME).nro: $(NAME)
+	@echo "Building nro..."
+	@elf2nro $< $@ $(NROFLAGS)
+else
 all: $(NAME)
+endif
 
 $(NAME): $(OBJDIR) $(OBJECTS)
 		$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
@@ -192,11 +233,11 @@ $(OBJDIR)/%.o :	$(SRCDIR)/m68k/%.c
 $(OBJDIR)/%.o :	$(SRCDIR)/ntsc/%.c $(SRCDIR)/ntsc/%.h	        
 		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 
-$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c $(SRCDIR)/tremor/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c 	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+#$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c $(SRCDIR)/tremor/%.h	        
+#		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+#
+#$(OBJDIR)/%.o :	$(SRCDIR)/tremor/%.c 	        
+#		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 
 $(OBJDIR)/%.o :	$(CHDLIBDIR)/src/%.c 	        
 		$(CC) -c $(FLAGS) $(INCLUDES) -I$(CHDLIBDIR)/src -I$(CHDLIBDIR)/deps/libFLAC/include -I$(CHDLIBDIR)/deps/lzma -I$(CHDLIBDIR)/deps/zlib $< -o $@
@@ -213,7 +254,7 @@ $(OBJDIR)/%.o :	$(SRCDIR)/../sdl/%.c $(SRCDIR)/../sdl/%.h
 $(OBJDIR)/%.o :	$(SRCDIR)/../sdl/sdl2/%.c $(SRCDIR)/../sdl/sdl2/%.h	        
 		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 
-ifeq ($(OS),Windows_NT)
+ifeq ($(WINDOWS), 1)
 $(OBJDIR)/icon.o :	
 		windres $(SRCDIR)/../sdl/icon.rc $@
 endif
