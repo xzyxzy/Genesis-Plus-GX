@@ -73,7 +73,6 @@ struct {
   SDL_Surface* surf_screen;
   SDL_Surface* surf_bitmap;
   SDL_Texture* surf_texture;
-  SDL_Texture* surf_texture_test;
   SDL_Rect srect;
   SDL_Rect drect;
   Uint32 frames_rendered;
@@ -193,18 +192,18 @@ static int sdl_on_resize(void* data, SDL_Event* event) {
 md_ntsc_t *md_ntsc;
 sms_ntsc_t *sms_ntsc;
 
-static int sdl_video_init()
-{
 #if defined(USE_8BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB332;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB332
 #elif defined(USE_15BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB555;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB555
 #elif defined(USE_16BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB565;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB565
 #elif defined(USE_32BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB888;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
 #endif
 
+static int sdl_video_init()
+{
   if(SDL_InitSubSystem(SDL_INIT_VIDEO) < 0) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
     return 0;
@@ -212,7 +211,9 @@ static int sdl_video_init()
   sdl_video.window = SDL_CreateWindow("Loading...", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH * WINDOW_SCALE, VIDEO_HEIGHT * WINDOW_SCALE, fullscreen | SDL_WINDOW_ALLOW_HIGHDPI);
   sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
-  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(surface_format), surface_format);
+  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
+  sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
+  // sdl_video.surf_texture = SDL_CreateTexture(sdl_video.renderer, SURFACE_FORMAT, SDL_TEXTUREACCESS_STREAMING, 720, 576);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
@@ -337,10 +338,23 @@ static void sdl_video_update()
   }
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-  SDL_Texture* texture_temp = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
-  SDL_RenderCopy(sdl_video.renderer, texture_temp, &sdl_video.srect, &sdl_video.drect);
-  SDL_DestroyTexture(texture_temp);
+  SDL_LockSurface(sdl_video.surf_bitmap);
+
+  Uint32 tex_fmt_id;
+  SDL_QueryTexture(sdl_video.surf_texture, &tex_fmt_id, NULL, NULL, NULL);
+
+  /* Set up a destination surface for the texture update */
+  SDL_PixelFormat *dst_fmt = SDL_AllocFormat(tex_fmt_id);
+  SDL_Surface *temp = SDL_ConvertSurface(sdl_video.surf_bitmap, dst_fmt, 0);
+
+  SDL_FreeFormat(dst_fmt);
+  SDL_UpdateTexture(sdl_video.surf_texture, NULL, temp->pixels, temp->pitch);
+  SDL_FreeSurface(temp);
+
+  SDL_RenderCopy(sdl_video.renderer, sdl_video.surf_texture, &sdl_video.srect, &sdl_video.drect);
   SDL_RenderPresent(sdl_video.renderer);
+
+  SDL_UnlockSurface(sdl_video.surf_bitmap);
 
   ++sdl_video.frames_rendered;
 }
