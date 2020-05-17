@@ -1,4 +1,8 @@
-gen_sdl2.exe
+*.exe
 *.bin
 *.dll
 *.nro
+*.data
+*.js
+*.wasm
+gen_sdl2.html

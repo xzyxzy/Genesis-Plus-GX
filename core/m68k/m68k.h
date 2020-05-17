@@ -41,6 +41,10 @@
 /* ================================ INCLUDES ============================== */
 /* ======================================================================== */
 
+#ifdef __EMSCRIPTEN__
+#include <sys/types.h>
+#endif
+
 #include <setjmp.h>
 #include "macros.h"
 #ifdef HOOK_CPU
@@ -79,7 +83,9 @@
 
 /* signed and unsigned int must be at least 32 bits wide */
 #define sint   signed   int
+#ifndef __EMSCRIPTEN__
 #define uint   unsigned int
+#endif
 
 
 #if M68K_USE_64_BIT

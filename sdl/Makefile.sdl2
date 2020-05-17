@@ -34,6 +34,13 @@ ifeq ($(OS),Windows_NT)
 	WINDOWS = 1
 endif
 
+ifdef EMSCRIPTEN
+	WINDOWS = 0
+	PKGCONFIG = :
+	CFLAGS += -s USE_SDL=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
+	CC = $(CXX)
+endif
+
 ifeq ($(SWITCH), 1)
 	ifeq ($(strip $(DEVKITPRO)),)
 		$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
@@ -193,6 +200,11 @@ all: $(NAME).nro
 $(NAME).nro: $(NAME)
 	@echo "Building nro..."
 	@elf2nro $< $@ $(NROFLAGS)
+else ifdef EMSCRIPTEN
+all: $(NAME).js
+
+$(NAME).js: $(OBJDIR) $(OBJECTS)
+		$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 else
 all: $(NAME)
 endif

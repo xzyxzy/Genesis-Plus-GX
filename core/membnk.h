@@ -53,6 +53,7 @@ struct _zbank_memory_map
 {
   unsigned int (*read)(unsigned int address);
   void (*write)(unsigned int address, unsigned int data);
-} zbank_memory_map[256];
+};
+extern struct _zbank_memory_map zbank_memory_map[256];
 
 #endif /* _MEMBNK_H_ */

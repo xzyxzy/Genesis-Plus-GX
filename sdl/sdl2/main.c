@@ -5,6 +5,10 @@
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #ifdef ENABLE_NXLINK
 #ifdef __cplusplus
 extern "C" {
@@ -208,7 +212,21 @@ static int sdl_video_init()
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
     return 0;
   }
-  sdl_video.window = SDL_CreateWindow("Loading...", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH * WINDOW_SCALE, VIDEO_HEIGHT * WINDOW_SCALE, fullscreen | SDL_WINDOW_ALLOW_HIGHDPI);
+
+  uint32 window_flags = fullscreen | SDL_WINDOW_RESIZABLE;
+
+  #ifndef __EMSCRIPTEN__
+  window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+  #endif
+
+  sdl_video.window = SDL_CreateWindow(
+    "Loading...",
+    SDL_WINDOWPOS_UNDEFINED,
+    SDL_WINDOWPOS_UNDEFINED,
+    VIDEO_WIDTH * WINDOW_SCALE,
+    VIDEO_HEIGHT * WINDOW_SCALE,
+    window_flags
+  );
   sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
   sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
@@ -217,7 +235,6 @@ static int sdl_video_init()
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
-  SDL_SetWindowResizable(sdl_video.window, SDL_TRUE);
   SDL_AddEventWatch(sdl_on_resize, sdl_video.window);
   return 1;
 }
@@ -770,6 +787,38 @@ static void update_overclock(void)
 }
 #endif
 
+int running = 1;
+
+void mainloop() {
+  SDL_Event event;
+  if (SDL_PollEvent(&event))
+  {
+    switch(event.type)
+    {
+      case SDL_QUIT:
+      {
+        running = 0;
+        break;
+      }
+
+      case SDL_KEYDOWN:
+      {
+        running = sdl_control_update(event.key.keysym.sym);
+        break;
+      }
+    }
+  }
+
+  #ifdef HAVE_OVERCLOCK
+    /* update overclock delay */
+    if (overclock_enable && overclock_delay && --overclock_delay == 0)
+        update_overclock();
+  #endif
+
+  sdl_video_update();
+  sdl_sound_update(use_sound);
+}
+
 int main (int argc, char **argv)
 {
   #ifdef ENABLE_NXLINK
@@ -778,7 +827,6 @@ int main (int argc, char **argv)
   #endif
   
   FILE *fp;
-  int running = 1;
 
   /* Print help if no game specified */
   // if(argc < 2)
@@ -851,7 +899,7 @@ int main (int argc, char **argv)
 #elif defined(USE_32BPP_RENDERING)
   bitmap.pitch        = (bitmap.width * 4);
 #endif
-  bitmap.data         = sdl_video.surf_bitmap->pixels;
+  bitmap.data         = (unsigned char *)sdl_video.surf_bitmap->pixels;
   SDL_UnlockSurface(sdl_video.surf_bitmap);
   bitmap.viewport.changed = 3;
 
@@ -955,101 +1003,78 @@ int main (int argc, char **argv)
   controller = SDL_GameControllerOpen(0);
 
   /* emulation loop */
-  while(running)
-  {
-    SDL_Event event;
-    if (SDL_PollEvent(&event))
-    {
-      switch(event.type)
-      {
-        case SDL_QUIT:
-        {
-          running = 0;
-          break;
-        }
+  #ifdef __EMSCRIPTEN__
+   emscripten_set_main_loop(&mainloop, 60, 1);
+  #else
+    while(running) {
+      mainloop();
+      
+      static long double timePrev;
+      const uint32_t timeNow = SDL_GetTicks();
+      const long double timeNext = timePrev + framerateMilliseconds;
 
-        case SDL_KEYDOWN:
+      if (timeNow >= timePrev + 100)
+      {
+        timePrev = (long double)timeNow;
+      }
+      else
+      {
+        if (timeNow < timeNext)
+          SDL_Delay(timeNext - timeNow);
+        timePrev += framerateMilliseconds;
+      }
+    }
+
+    if (system_hw == SYSTEM_MCD)
+    {
+      /* save internal backup RAM (if formatted) */
+      if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
+      {
+        fp = fopen("./scd.brm", "wb");
+        if (fp!=NULL)
         {
-          running = sdl_control_update(event.key.keysym.sym);
-          break;
+          fwrite(scd.bram, 0x2000, 1, fp);
+          fclose(fp);
+        }
+      }
+
+      /* save cartridge backup RAM (if formatted) */
+      if (scd.cartridge.id)
+      {
+        if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
+        {
+          fp = fopen("./cart.brm", "wb");
+          if (fp!=NULL)
+          {
+            fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
+            fclose(fp);
+          }
         }
       }
     }
 
-    #ifdef HAVE_OVERCLOCK
-      /* update overclock delay */
-      if (overclock_enable && overclock_delay && --overclock_delay == 0)
-          update_overclock();
-    #endif
-
-    sdl_video_update();
-    sdl_sound_update(use_sound);
-
-    static long double timePrev;
-    const uint32_t timeNow = SDL_GetTicks();
-    const long double timeNext = timePrev + framerateMilliseconds;
-
-    if (timeNow >= timePrev + 100)
+    if (sram.on)
     {
-      timePrev = (long double)timeNow;
-    }
-    else
-    {
-      if (timeNow < timeNext)
-        SDL_Delay(timeNext - timeNow);
-      timePrev += framerateMilliseconds;
-    }
-  }
-
-  if (system_hw == SYSTEM_MCD)
-  {
-    /* save internal backup RAM (if formatted) */
-    if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
-    {
-      fp = fopen("./scd.brm", "wb");
+      /* save SRAM */
+      fp = fopen("./game.srm", "wb");
       if (fp!=NULL)
       {
-        fwrite(scd.bram, 0x2000, 1, fp);
+        fwrite(sram.sram,0x10000,1, fp);
         fclose(fp);
       }
     }
 
-    /* save cartridge backup RAM (if formatted) */
-    if (scd.cartridge.id)
-    {
-      if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
-      {
-        fp = fopen("./cart.brm", "wb");
-        if (fp!=NULL)
-        {
-          fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
-          fclose(fp);
-        }
-      }
-    }
-  }
+    audio_shutdown();
+    error_shutdown();
 
-  if (sram.on)
-  {
-    /* save SRAM */
-    fp = fopen("./game.srm", "wb");
-    if (fp!=NULL)
-    {
-      fwrite(sram.sram,0x10000,1, fp);
-      fclose(fp);
-    }
-  }
+    sdl_video_close();
+    sdl_sound_close();
+    sdl_sync_close();
+    SDL_Quit();
 
-  audio_shutdown();
-  error_shutdown();
-
-  sdl_video_close();
-  sdl_sound_close();
-  sdl_sync_close();
-  SDL_Quit();
-
-  #ifdef ENABLE_NXLINK
-  socketExit();
+    #ifdef ENABLE_NXLINK
+    socketExit();
+    #endif
   #endif
   
   return 0;
