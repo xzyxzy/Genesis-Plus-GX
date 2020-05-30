@@ -126,15 +126,15 @@ static void sdl_mixer_callback(int channel)
   Mix_Chunk *chunk;
   chunk = &sdl_sound.chunk;
 
-  if(sdl_sound.current_emulated_samples < len) {
+  if(sdl_sound.current_emulated_samples < chunk->alen) {
     memset(chunk->abuf, 0, chunk->alen);
   }
   else {
     memcpy(chunk->abuf, sdl_sound.buffer, chunk->alen);
     /* loop to compensate desync */
     do {
-      sdl_sound.current_emulated_samples -= len;
-    } while(sdl_sound.current_emulated_samples > 2 * len);
+      sdl_sound.current_emulated_samples -= chunk->alen;
+    } while(sdl_sound.current_emulated_samples > 2 * chunk->alen);
     memcpy(sdl_sound.buffer,
            sdl_sound.current_pos - sdl_sound.current_emulated_samples,
            sdl_sound.current_emulated_samples);
