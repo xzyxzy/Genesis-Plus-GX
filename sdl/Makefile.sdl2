@@ -62,24 +62,22 @@ ifeq ($(SWITCH), 1)
 	CC = $(CXX)
 endif
 
-CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer sdl2 zlib flac vorbis vorbisfile` -fomit-frame-pointer -Wall -Wno-strict-aliasing -Wno-narrowing -fpermissive -static
-#-g -ggdb -pg
-#-fomit-frame-pointer
+CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer sdl2 zlib flac vorbis vorbisfile opusfile libmpg123` -fomit-frame-pointer -Wall -Wno-strict-aliasing -Wno-narrowing -fpermissive -static
 LDFLAGS   = $(CFLAGS)
 DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS -DMAXROMSIZE=33554432 \
 	-DHAVE_NO_SPRITE_LIMIT \
 	-DM68K_OVERCLOCK_SHIFT=20
 
-ifneq ($(OS),Windows_NT)
+ifneq ($(WINDOWS),1)
 DEFINES += -DHAVE_ALLOCA_H
 endif
 
 SRCDIR    = ../core
 INCLUDES  += -I$(SRCDIR) -I$(SRCDIR)/z80 -I$(SRCDIR)/m68k -I$(SRCDIR)/sound -I$(SRCDIR)/input_hw -I$(SRCDIR)/cart_hw -I$(SRCDIR)/cart_hw/svp -I$(SRCDIR)/cd_hw -I$(SRCDIR)/ntsc -I$(SRCDIR)/../sdl -I$(SRCDIR)/../sdl/sdl2
-LIBS	  += `$(PKGCONFIG) --static --libs SDL2_mixer sdl2 zlib flac vorbis vorbisfile`
+LIBS	  += `$(PKGCONFIG) --static --libs SDL2_mixer sdl2 zlib flac vorbis vorbisfile opusfile libmpg123`
 
-ifeq ($(WINDOWS), 1)
-	LIBS += -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lz -lm
+ifeq ($(WINDOWS),1)
+LIBS += -lshlwapi -mconsole
 endif
 
 INCLUDES += $(LIBS)
@@ -153,7 +151,8 @@ OBJECTS	+=	$(OBJDIR)/main.o	\
 		$(OBJDIR)/error.o	\
 		$(OBJDIR)/ioapi.o       \
 		$(OBJDIR)/unzip.o       \
-		$(OBJDIR)/fileio.o	
+		$(OBJDIR)/fileio.o	\
+		$(OBJDIR)/gamehacks.o
 
 #OBJECTS	+=	$(OBJDIR)/bitwise.o	 \
 #		$(OBJDIR)/block.o      \

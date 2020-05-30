@@ -6,3 +6,4 @@
 *.js
 *.wasm
 gen_sdl2.html
+gamehacks/**/*

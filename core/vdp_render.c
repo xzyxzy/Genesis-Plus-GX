@@ -1674,6 +1674,9 @@ void render_bg_m5_vs(int line)
 
   /* Common data */
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_ste) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = 0;
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -1864,6 +1867,9 @@ void render_bg_m5_im2(int line)
   /* Common data */
   int odd = odd_frame;
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_im2) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = *(uint32 *)&vsram[0];
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -2017,6 +2023,9 @@ void render_bg_m5_im2_vs(int line)
   /* Common data */
   int odd = odd_frame;
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_im2_ste) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = 0;
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -3180,7 +3189,7 @@ void render_obj_m5(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos;
+    xpos = object_info->xpos + 40;
 
     /* Sprite masking  */
     if (xpos)
@@ -3195,7 +3204,7 @@ void render_obj_m5(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80 + 40;
+    xpos = xpos - 0x80;
 
     /* Sprite size */
     temp = object_info->size;
@@ -3293,7 +3302,7 @@ void render_obj_m5_ste(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos;
+    xpos = object_info->xpos + 40;
 
     /* Sprite masking  */
     if (xpos)
@@ -3409,7 +3418,7 @@ void render_obj_m5_im2(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos;
+    xpos = object_info->xpos + 40;
 
     /* Sprite masking  */
     if (xpos)
@@ -3522,7 +3531,7 @@ void render_obj_m5_im2_ste(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos;
+    xpos = object_info->xpos + 40;
 
     /* Sprite masking  */
     if (xpos)

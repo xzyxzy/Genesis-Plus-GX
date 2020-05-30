@@ -607,6 +607,13 @@ void system_frame_gen(int do_skip)
     if (!do_skip)
     {
       render_line(line);
+
+      // Bye bye interlacing
+      if (interlaced) {
+        odd_frame ^= 1;
+        render_line(line);
+        odd_frame ^= 1;
+      }
     }
 
     /* update 6-Buttons & Lightguns */

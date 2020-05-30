@@ -1,9 +1,12 @@
-#include "SDL.h"
-#include "SDL_thread.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_thread.h>
+#include <SDL2/SDL_mixer.h>
 
 #include "shared.h"
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
+
+#include "gamehacks.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -55,7 +58,7 @@ static uint32_t overclock_delay;
 static int overclock_enable = 1;
 #endif
 
-#define SOUND_FREQUENCY 48000
+#define SOUND_FREQUENCY 44100
 #define SOUND_SAMPLES_SIZE  2048
 
 #define VIDEO_WIDTH  398
@@ -63,7 +66,16 @@ static int overclock_enable = 1;
 
 #define WINDOW_SCALE 3
 
+#ifndef max
+    #define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef min
+    #define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
 int joynum = 0;
+uint64 frametimer = 0;
 
 int log_error   = 0;
 int debug_on    = 0;
@@ -90,6 +102,8 @@ struct {
   char* current_pos;
   char* buffer;
   int current_emulated_samples;
+  Mix_Chunk chunk;
+  int current_chunk;
 } sdl_sound;
 
 
@@ -104,13 +118,19 @@ static uint8 brm_format[0x40] =
 
 static short soundframe[SOUND_SAMPLES_SIZE];
 
-static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
+// static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
+static void sdl_mixer_callback(int channel)
 {
+  if (channel != 1) return;
+
+  Mix_Chunk *chunk;
+  chunk = &sdl_sound.chunk;
+
   if(sdl_sound.current_emulated_samples < len) {
-    memset(stream, 0, len);
+    memset(chunk->abuf, 0, chunk->alen);
   }
   else {
-    memcpy(stream, sdl_sound.buffer, len);
+    memcpy(chunk->abuf, sdl_sound.buffer, chunk->alen);
     /* loop to compensate desync */
     do {
       sdl_sound.current_emulated_samples -= len;
@@ -120,6 +140,8 @@ static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
            sdl_sound.current_emulated_samples);
     sdl_sound.current_pos = sdl_sound.buffer + sdl_sound.current_emulated_samples;
   }
+
+  Mix_PlayChannel(1, chunk, 0);
 }
 
 static int sdl_sound_init()
@@ -132,19 +154,20 @@ static int sdl_sound_init()
     return 0;
   }
 
-  as_desired.freq     = SOUND_FREQUENCY;
-  as_desired.format   = AUDIO_S16LSB;
-  as_desired.channels = 2;
-  as_desired.samples  = SOUND_SAMPLES_SIZE;
-  as_desired.callback = sdl_sound_callback;
 
-  if(SDL_OpenAudio(&as_desired, NULL) < 0) {
+  if(Mix_OpenAudio(SOUND_FREQUENCY, AUDIO_S16LSB, 2, SOUND_SAMPLES_SIZE) < 0) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Audio open failed", sdl_video.window);
     return 0;
   }
 
   sdl_sound.current_emulated_samples = 0;
   n = SOUND_SAMPLES_SIZE * 2 * sizeof(short) * 20;
+
+  sdl_sound.chunk.allocated = 0;
+  sdl_sound.chunk.abuf = (Uint8*)malloc(n / 20);
+  sdl_sound.chunk.alen = n / 20;
+  sdl_sound.chunk.volume = 128;
+
   sdl_sound.buffer = (char*)malloc(n);
   if(!sdl_sound.buffer) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Can't allocate audio buffer", sdl_video.window);
@@ -152,6 +175,10 @@ static int sdl_sound_init()
   }
   memset(sdl_sound.buffer, 0, n);
   sdl_sound.current_pos = sdl_sound.buffer;
+
+  Mix_ChannelFinished(sdl_mixer_callback);
+  Mix_PlayChannel(1, &sdl_sound.chunk, 0);
+
   return 1;
 }
 
@@ -179,7 +206,7 @@ static void sdl_sound_update(int enabled)
 static void sdl_sound_close()
 {
   SDL_PauseAudio(1);
-  SDL_CloseAudio();
+  Mix_CloseAudio();
   if (sdl_sound.buffer)
     free(sdl_sound.buffer);
 }
@@ -231,7 +258,6 @@ static int sdl_video_init()
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
   sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
   sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
-  // sdl_video.surf_texture = SDL_CreateTexture(sdl_video.renderer, SURFACE_FORMAT, SDL_TEXTUREACCESS_STREAMING, 720, 576);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
@@ -272,6 +298,8 @@ static void sdl_video_update()
     /* source bitmap */
     sdl_video.srect.w = bitmap.viewport.w+2*bitmap.viewport.x;
     sdl_video.srect.h = bitmap.viewport.h+2*bitmap.viewport.y;
+    if (interlaced) sdl_video.srect.h += bitmap.viewport.h;
+
     sdl_video.srect.x = 0;
     sdl_video.srect.y = 0;
     if (sdl_video.srect.w > sdl_video.screen_width)
@@ -285,12 +313,6 @@ static void sdl_video_update()
       sdl_video.srect.h = sdl_video.screen_height;
     }
 
-    /* destination bitmap */
-    // sdl_video.drect.w = sdl_video.srect.w;
-    // sdl_video.drect.h = sdl_video.srect.h;
-    // sdl_video.drect.x = (1280 - sdl_video.drect.w) / 2;
-    // sdl_video.drect.y = (720 - sdl_video.drect.h) / 2;
-
     sdl_video.drect.h = sdl_video.screen_height;
 
     if (1) { // Integer scaling
@@ -301,6 +323,7 @@ static void sdl_video_update()
     }
 
     sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
+    if (interlaced) sdl_video.drect.w /= 2;
 
     #ifdef SWITCH
     sdl_video.drect.x = 0;
@@ -312,46 +335,6 @@ static void sdl_video_update()
 
     /* clear destination surface */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
-
-#if 0
-    if (config.render && (interlaced || config.ntsc))  rect.h *= 2;
-    if (config.ntsc) rect.w = (reg[12]&1) ? MD_NTSC_OUT_WIDTH(rect.w) : SMS_NTSC_OUT_WIDTH(rect.w);
-    if (config.ntsc)
-    {
-      sms_ntsc = (sms_ntsc_t *)malloc(sizeof(sms_ntsc_t));
-      md_ntsc = (md_ntsc_t *)malloc(sizeof(md_ntsc_t));
-
-      switch (config.ntsc)
-      {
-        case 1:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_composite);
-          md_ntsc_init(md_ntsc, &md_ntsc_composite);
-          break;
-        case 2:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_svideo);
-          md_ntsc_init(md_ntsc, &md_ntsc_svideo);
-          break;
-        case 3:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_rgb);
-          md_ntsc_init(md_ntsc, &md_ntsc_rgb);
-          break;
-      }
-    }
-    else
-    {
-      if (sms_ntsc)
-      {
-        free(sms_ntsc);
-        sms_ntsc = NULL;
-      }
-
-      if (md_ntsc)
-      {
-        free(md_ntsc);
-        md_ntsc = NULL;
-      }
-    }
-#endif
   }
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
@@ -382,55 +365,6 @@ static void sdl_video_close()
   SDL_DestroyWindow(sdl_video.window);
 }
 
-/* Timer Sync */
-
-struct {
-  SDL_sem* sem_sync;
-  unsigned ticks;
-} sdl_sync;
-
-static Uint32 sdl_sync_timer_callback(Uint32 interval, void *param)
-{
-  SDL_SemPost(sdl_sync.sem_sync);
-  sdl_sync.ticks++;
-  if (sdl_sync.ticks == (vdp_pal ? 50 : 60))
-  {
-    SDL_Event event;
-    SDL_UserEvent userevent;
-
-    userevent.type = SDL_USEREVENT;
-    userevent.code = sdl_video.frames_rendered;
-    userevent.data1 = NULL;
-    userevent.data2 = NULL;
-    sdl_sync.ticks = sdl_video.frames_rendered = 0;
-
-    event.type = SDL_USEREVENT;
-    event.user = userevent;
-
-    SDL_PushEvent(&event);
-  }
-  return interval;
-}
-
-static int sdl_sync_init()
-{
-  if(SDL_InitSubSystem(SDL_INIT_TIMER|SDL_INIT_EVENTS) < 0)
-  {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Timer initialization failed", sdl_video.window);
-    return 0;
-  }
-
-  sdl_sync.sem_sync = SDL_CreateSemaphore(0);
-  sdl_sync.ticks = 0;
-  return 1;
-}
-
-static void sdl_sync_close()
-{
-  if(sdl_sync.sem_sync)
-    SDL_DestroySemaphore(sdl_sync.sem_sync);
-}
-
 static const uint16 vc_table[4][2] =
 {
   /* NTSC, PAL */
@@ -450,7 +384,7 @@ static int sdl_control_update(SDL_Keycode keystate)
         break;
       }
 
-      case SDLK_F4:
+      case SDLK_F11:
       {
         fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP );
         SDL_SetWindowFullscreen(sdl_video.window, fullscreen);
@@ -499,12 +433,6 @@ static int sdl_control_update(SDL_Keycode keystate)
         }
         break;
       }
-
-      // case SDLK_F10:
-      // {
-      //   gen_reset(0);
-      //   break;
-      // }
 
       case SDLK_F12:
       {
@@ -756,6 +684,63 @@ int sdl_input_update(void)
       if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
         input.pad[joynum] |= INPUT_RIGHT;
 
+      int axis_lx = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+      int axis_ly = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+
+      double deadzone_l = 10000;
+      double intensity_l = sqrt(pow(axis_lx, 2) + pow(axis_ly, 2));
+      double angle_l = atan2((double)axis_ly, (double)axis_lx) + M_PI;
+
+      // printf("%i, %i, %f, %f\n", axis_lx, axis_ly, intensity_l, angle_l);
+      double angle_overlap_x = M_PI_4 / 8.0;
+      double angle_overlap_y = M_PI_4 / 8.0;
+
+      double deadzone_lx_analog_upper = 10000;
+      double intensity_lx_adj = min(1, max(0,
+        (abs(axis_lx) - deadzone_l) /
+        (32767.0 - deadzone_lx_analog_upper - deadzone_l)
+      ));
+
+      intensity_lx_adj = ((intensity_lx_adj - 0) * (1 - 0.9)) / ((1 - 0) + 0.9);
+      int allow_horiz = 1;
+      if (intensity_lx_adj < 1.0) {
+        double frametimer_period = 3.0;
+        allow_horiz = (
+          (int)(frametimer / frametimer_period) %
+          (
+            (int)(60.0 / frametimer_period) -
+            (int)(intensity_lx_adj * (60.0 / frametimer_period))
+          )
+        ) == 0;
+      }
+
+      if (intensity_l > deadzone_l) {
+        if (
+          (
+            (angle_l < M_PI_4 + angle_overlap_x) ||
+            (angle_l > ((2*M_PI) - M_PI_4 - angle_overlap_x))
+          ) && (allow_horiz)
+        ) input.pad[joynum] |= INPUT_LEFT;
+
+        if (
+          (
+            (angle_l < (M_PI + M_PI_4 + angle_overlap_x)) &&
+            (angle_l > (M_PI - M_PI_4 - angle_overlap_x))
+          ) && (allow_horiz)
+        ) input.pad[joynum] |= INPUT_RIGHT;
+
+        if (
+          (angle_l < (M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+          (angle_l > (M_PI_2 - M_PI_4 - angle_overlap_y))
+        ) input.pad[joynum] |= INPUT_UP;
+
+        if (
+          (angle_l < (M_PI + M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+          (angle_l > (M_PI + M_PI_2 - M_PI_4 - angle_overlap_y))
+        ) input.pad[joynum] |= INPUT_DOWN;
+
+      }
+
       break;
     }
   }
@@ -809,6 +794,8 @@ void mainloop() {
     }
   }
 
+  gamehacks_update();
+
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
     if (overclock_enable && overclock_delay && --overclock_delay == 0)
@@ -817,6 +804,8 @@ void mainloop() {
 
   sdl_video_update();
   sdl_sound_update(use_sound);
+
+  frametimer++;
 }
 
 int main (int argc, char **argv)
@@ -827,15 +816,6 @@ int main (int argc, char **argv)
   #endif
   
   FILE *fp;
-
-  /* Print help if no game specified */
-  // if(argc < 2)
-  // {
-  //   char caption[256];
-  //   sprintf(caption, "Genesis Plus GX\\SDL\nusage: %s gamename\n", argv[0]);
-  //   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Information", caption, sdl_video.window);
-  //   return 1;
-  // }
 
   /* set default config */
   error_init();
@@ -879,7 +859,6 @@ int main (int argc, char **argv)
   }
   sdl_video_init();
   if (use_sound) sdl_sound_init();
-  sdl_sync_init();
 
   SDL_InitSubSystem(SDL_INIT_JOYSTICK);
   SDL_JoystickEventState(SDL_ENABLE);
@@ -1002,6 +981,8 @@ int main (int argc, char **argv)
 
   controller = SDL_GameControllerOpen(0);
 
+  gamehacks_init();
+
   /* emulation loop */
   #ifdef __EMSCRIPTEN__
    emscripten_set_main_loop(&mainloop, 60, 1);
@@ -1064,12 +1045,13 @@ int main (int argc, char **argv)
       }
     }
 
+    gamehacks_deinit();
+
     audio_shutdown();
     error_shutdown();
 
     sdl_video_close();
     sdl_sound_close();
-    sdl_sync_close();
     SDL_Quit();
 
     #ifdef ENABLE_NXLINK
