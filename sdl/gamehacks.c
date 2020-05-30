@@ -125,10 +125,8 @@ void gamehacks_update_sound() {
 
     int paused = gamehacks_sound_ispaused();
     if (paused && !gamehacks_sound_ispaused_prev) {
-        Mix_Pause(-1);
         Mix_PauseMusic();
     } else if (!paused && gamehacks_sound_ispaused_prev) {
-        Mix_Resume(-1);
         Mix_ResumeMusic();
     }
 
