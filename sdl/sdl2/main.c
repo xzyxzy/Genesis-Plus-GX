@@ -398,15 +398,16 @@ static int sdl_control_update(SDL_Keycode keystate)
       //   break;
       // }
 
-      // case SDLK_F6:
-      // {
-      //   if (!use_sound)
-      //   {
-      //     turbo_mode ^=1;
-      //     sdl_sync.ticks = 0;
-      //   }
-      //   break;
-      // }
+      case SDLK_F6:
+      {
+        // if (!use_sound)
+        // {
+          use_sound ^= 1;
+          turbo_mode ^=1;
+          // sdl_sync.ticks = 0;
+        // }
+        break;
+      }
 
       case SDLK_F7:
       {
@@ -810,6 +811,8 @@ void mainloop() {
 
 int main (int argc, char **argv)
 {
+  printf("Emulator start\n");
+
   #ifdef ENABLE_NXLINK
   socketInitializeDefault();
   nxlinkStdio();
@@ -990,6 +993,8 @@ int main (int argc, char **argv)
     while(running) {
       mainloop();
       
+      if (turbo_mode) continue;
+
       static long double timePrev;
       const uint32_t timeNow = SDL_GetTicks();
       const long double timeNext = timePrev + framerateMilliseconds;

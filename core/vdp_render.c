@@ -3189,7 +3189,7 @@ void render_obj_m5(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos + 40;
+    xpos = object_info->xpos;
 
     /* Sprite masking  */
     if (xpos)
@@ -3204,7 +3204,9 @@ void render_obj_m5(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80;
+    xpos = xpos - 0x80 + 40;
+
+    // if (xpos < 32) printf("%i\n", xpos + width);
 
     /* Sprite size */
     temp = object_info->size;
@@ -3302,7 +3304,7 @@ void render_obj_m5_ste(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos + 40;
+    xpos = object_info->xpos;
 
     /* Sprite masking  */
     if (xpos)
@@ -3317,7 +3319,7 @@ void render_obj_m5_ste(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80;
+    xpos = xpos - 0x80 + 40;
 
     /* Sprite size */
     temp = object_info->size;
@@ -3418,7 +3420,7 @@ void render_obj_m5_im2(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos + 40;
+    xpos = object_info->xpos;
 
     /* Sprite masking  */
     if (xpos)
@@ -3433,7 +3435,7 @@ void render_obj_m5_im2(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80;
+    xpos = xpos - 0x80 + 40;
 
     /* Sprite size */
     temp = object_info->size;
@@ -3531,7 +3533,7 @@ void render_obj_m5_im2_ste(int line)
   while (count--)
   {
     /* Sprite X position */
-    xpos = object_info->xpos + 40;
+    xpos = object_info->xpos;
 
     /* Sprite masking  */
     if (xpos)
@@ -3546,7 +3548,7 @@ void render_obj_m5_im2_ste(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80;
+    xpos = xpos - 0x80 + 40;
 
     /* Sprite size */
     temp = object_info->size;
@@ -3872,7 +3874,7 @@ void parse_satb_m5(int line)
 
         /* Update sprite list (only name, attribute & xpos are parsed from VRAM) */
         object_info->attr  = p[link + 2];
-        object_info->xpos  = p[link + 3] & 0x1ff;
+        object_info->xpos  = p[link + 3];
         object_info->ypos  = ypos;
         object_info->size  = size & 0x0f;
 

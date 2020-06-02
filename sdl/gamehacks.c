@@ -118,7 +118,7 @@ void gamehacks_update_sound() {
 
     if (hasspeedshoes && !gamehacks_sound_hasspeedshoes_prev) {
         gamehacks_play_music_path("./gamehacks/music/speedup.ogg");
-        // work_ram[mQueue+1] = 3;
+        work_ram[mQueue+1] = 3;
     } else if (!hasspeedshoes && gamehacks_sound_hasspeedshoes_prev) {
         work_ram[mQueue+1] = gamehacks_music_current;
     }
