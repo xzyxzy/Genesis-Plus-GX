@@ -26,24 +26,33 @@
 # -DHAVE_YM3438_CORE : enable (configurable) support for Nuked cycle-accurate YM3438 core
 # -DHOOK_CPU         : enable CPU hooks
 
-NAME	  = gen_sdl2
+NAME	  = gen
+BINDIR	  = bin
+PLATFORM  = Unknown
+SUFFIX	  = 
 CC        = gcc
 PKGCONFIG = pkg-config
 
 ifeq ($(OS),Windows_NT)
 	WINDOWS = 1
+	PLATFORM = Windows
+	SUFFIX = exe
 endif
 
 ifdef EMSCRIPTEN
 	WINDOWS = 0
+	PLATFORM = Emscripten
 	PKGCONFIG = :
-	CFLAGS += -s USE_SDL=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
+	CFLAGS += -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
+	SUFFIX = js
 endif
 
 ifeq ($(SWITCH), 1)
 	ifeq ($(strip $(DEVKITPRO)),)
 		$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 	endif
+
+	PLATFORM = Switch
 
 	WINDOWS = 0
 
@@ -57,6 +66,8 @@ ifeq ($(SWITCH), 1)
 	ifdef ENABLE_NXLINK
 		CXXFLAGS += -DENABLE_NXLINK
 	endif
+
+	SUFFIX = nro
 endif
 
 CC = $(CXX)
@@ -81,8 +92,6 @@ endif
 INCLUDES += $(LIBS)
 
 CHDLIBDIR = $(SRCDIR)/cd_hw/libchdr
-
-OBJDIR = ./build_sdl2
 
 OBJECTS	=       $(OBJDIR)/z80.o	
 
@@ -185,29 +194,33 @@ OBJECTS	+=	$(OBJDIR)/main.o	\
 #		$(OBJDIR)/stream_decoder.o	\
 #		$(OBJDIR)/LzFind.o		\
 #		$(OBJDIR)/LzmaDec.o		\
-#		$(OBJDIR)/LzmaEnc.o		\
+#		$(OBJDIR)/LzmaEnc.o
 
 ifeq ($(WINDOWS), 1)
 OBJECTS	+=	$(OBJDIR)/icon.o
 endif
 
-ifeq ($(SWITCH), 1)
-all: $(NAME).nro
+OUTDIR = $(BINDIR)/$(PLATFORM)
+FULLNAME = $(OUTDIR)/$(NAME).$(SUFFIX)
+OBJDIR = objects/$(PLATFORM)
 
-$(NAME).nro: $(NAME)
+ifeq ($(SWITCH), 1)
+
+$(FULLNAME): $(OUTDIR)/$(NAME)
 	@echo "Building nro..."
 	@elf2nro $< $@ $(NROFLAGS)
-else ifdef EMSCRIPTEN
-all: $(NAME).js
 
-$(NAME).js: $(OBJDIR) $(OBJECTS)
-		$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+$(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+
 else
-all: $(NAME)
+$(FULLNAME): $(OBJDIR) $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 endif
 
-$(NAME): $(OBJDIR) $(OBJECTS)
-		$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+$(shell mkdir -p $(OUTDIR))
+$(shell mkdir -p $(OBJDIR))
+all: $(FULLNAME)
 
 $(OBJDIR) :
 		@[ -d $@ ] || mkdir -p $@

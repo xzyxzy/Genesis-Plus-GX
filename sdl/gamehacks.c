@@ -80,7 +80,7 @@ int gamehacks_play_music(int id) {
     if (gamehacks_sound_hasspeedshoes())
         return 3;
 
-    char *path = malloc((80+1)*sizeof(char));
+    char *path = (char *)malloc((80+1)*sizeof(char));
 
     int result;
     if (work_ram[Current_Act] == 1) {
@@ -96,11 +96,11 @@ int gamehacks_play_music(int id) {
 }
 
 int gamehacks_play_sound(int id) {
-    if (id == 0) return;
+    if (id == 0) return id;
  
     if (id == 2) {
         Mix_FadeOutMusic(750);
-        return;
+        return id;
     }
 
     // int result_sfx = gamehacks_play_sfx(id);

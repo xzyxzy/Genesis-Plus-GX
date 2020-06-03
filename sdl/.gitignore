@@ -1,9 +1,3 @@
-*.exe
-*.bin
-*.dll
-*.nro
-*.data
-*.js
-*.wasm
-gen_sdl2.html
-gamehacks/**/*
+gamehacks/
+objects/
+bin/
