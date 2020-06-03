@@ -41,6 +41,7 @@
 
 #include "shared.h"
 
+struct _zbank_memory_map zbank_memory_map[256];
 
 /*--------------------------------------------------------------------------*/
 /*  Handlers for access to unused addresses and those which make the        */

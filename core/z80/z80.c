@@ -3375,7 +3375,7 @@ void z80_init(const void *config, int (*irqcallback)(int))
 
   /* Initialize Z80 */
   memset(&Z80, 0, sizeof(Z80));
-  Z80.daisy = config;
+  Z80.daisy = (const struct z80_irq_daisy_chain *)config;
   Z80.irq_callback = irqcallback;
 #ifdef Z80_OVERCLOCK_SHIFT
   z80_cycle_ratio = 1 << Z80_OVERCLOCK_SHIFT;

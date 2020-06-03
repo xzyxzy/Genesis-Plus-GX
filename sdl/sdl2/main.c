@@ -1,9 +1,53 @@
-#include "SDL.h"
-#include "SDL_thread.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_thread.h>
+#include <SDL2/SDL_mixer.h>
 
 #include "shared.h"
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
+
+#include "gamehacks.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+#ifdef ENABLE_NXLINK
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "switch/runtime/devices/socket.h"
+#include "switch/runtime/nxlink.h"
+
+
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#define STATIC_ASSERT(name, test) typedef struct { int assert_[(test)?1:-1]; } assert_ ## name ## _
+#define M68K_MAX_CYCLES 1107
+#define Z80_MAX_CYCLES 345
+#define OVERCLOCK_FRAME_DELAY 100
+
+#ifdef M68K_OVERCLOCK_SHIFT
+#define HAVE_OVERCLOCK
+STATIC_ASSERT(m68k_overflow,
+              M68K_MAX_CYCLES <= UINT_MAX >> (M68K_OVERCLOCK_SHIFT + 1));
+#endif
+
+#ifdef Z80_OVERCLOCK_SHIFT
+#ifndef HAVE_OVERCLOCK
+#define HAVE_OVERCLOCK
+#endif
+STATIC_ASSERT(z80_overflow,
+              Z80_MAX_CYCLES <= UINT_MAX >> (Z80_OVERCLOCK_SHIFT + 1));
+#endif
 
 /* Some games appear to calibrate music playback speed for PAL/NTSC by
    actually counting CPU cycles per frame during startup, resulting in
@@ -11,15 +55,28 @@
    workaround */
 #ifdef HAVE_OVERCLOCK
 static uint32_t overclock_delay;
+static int overclock_enable = 1;
 #endif
 
-#define SOUND_FREQUENCY 48000
+#define SOUND_FREQUENCY 44100
 #define SOUND_SAMPLES_SIZE  2048
 
 #define VIDEO_WIDTH  398
 #define VIDEO_HEIGHT 224
 
+#define WINDOW_SCALE 3
+
+#ifndef max
+    #define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef min
+    #define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
+int mirrormode = 0;
 int joynum = 0;
+uint64 frametimer = 0;
 
 int log_error   = 0;
 int debug_on    = 0;
@@ -29,11 +86,15 @@ int fullscreen  = 0; /* SDL_WINDOW_FULLSCREEN */
 
 struct {
   SDL_Window* window;
+  SDL_Renderer* renderer;
   SDL_Surface* surf_screen;
   SDL_Surface* surf_bitmap;
+  SDL_Texture* surf_texture;
   SDL_Rect srect;
   SDL_Rect drect;
   Uint32 frames_rendered;
+  Uint16 screen_width;
+  Uint16 screen_height;
 } sdl_video;
 
 /* sound */
@@ -42,6 +103,8 @@ struct {
   char* current_pos;
   char* buffer;
   int current_emulated_samples;
+  Mix_Chunk chunk;
+  int current_chunk;
 } sdl_sound;
 
 
@@ -56,22 +119,30 @@ static uint8 brm_format[0x40] =
 
 static short soundframe[SOUND_SAMPLES_SIZE];
 
-static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
+// static void sdl_sound_callback(void *userdata, Uint8 *stream, int len)
+static void sdl_mixer_callback(int channel)
 {
-  if(sdl_sound.current_emulated_samples < len) {
-    memset(stream, 0, len);
+  if (channel != 1) return;
+
+  Mix_Chunk *chunk;
+  chunk = &sdl_sound.chunk;
+
+  if(sdl_sound.current_emulated_samples < chunk->alen) {
+    memset(chunk->abuf, 0, chunk->alen);
   }
   else {
-    memcpy(stream, sdl_sound.buffer, len);
+    memcpy(chunk->abuf, sdl_sound.buffer, chunk->alen);
     /* loop to compensate desync */
     do {
-      sdl_sound.current_emulated_samples -= len;
-    } while(sdl_sound.current_emulated_samples > 2 * len);
+      sdl_sound.current_emulated_samples -= chunk->alen;
+    } while(sdl_sound.current_emulated_samples > 2 * chunk->alen);
     memcpy(sdl_sound.buffer,
            sdl_sound.current_pos - sdl_sound.current_emulated_samples,
            sdl_sound.current_emulated_samples);
     sdl_sound.current_pos = sdl_sound.buffer + sdl_sound.current_emulated_samples;
   }
+
+  Mix_PlayChannel(1, chunk, 0);
 }
 
 static int sdl_sound_init()
@@ -84,19 +155,20 @@ static int sdl_sound_init()
     return 0;
   }
 
-  as_desired.freq     = SOUND_FREQUENCY;
-  as_desired.format   = AUDIO_S16LSB;
-  as_desired.channels = 2;
-  as_desired.samples  = SOUND_SAMPLES_SIZE;
-  as_desired.callback = sdl_sound_callback;
 
-  if(SDL_OpenAudio(&as_desired, NULL) < 0) {
+  if(Mix_OpenAudio(SOUND_FREQUENCY, AUDIO_S16LSB, 2, SOUND_SAMPLES_SIZE) < 0) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Audio open failed", sdl_video.window);
     return 0;
   }
 
   sdl_sound.current_emulated_samples = 0;
   n = SOUND_SAMPLES_SIZE * 2 * sizeof(short) * 20;
+
+  sdl_sound.chunk.allocated = 0;
+  sdl_sound.chunk.abuf = (Uint8*)malloc(n / 20);
+  sdl_sound.chunk.alen = n / 20;
+  sdl_sound.chunk.volume = 128;
+
   sdl_sound.buffer = (char*)malloc(n);
   if(!sdl_sound.buffer) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Can't allocate audio buffer", sdl_video.window);
@@ -104,6 +176,10 @@ static int sdl_sound_init()
   }
   memset(sdl_sound.buffer, 0, n);
   sdl_sound.current_pos = sdl_sound.buffer;
+
+  Mix_ChannelFinished(sdl_mixer_callback);
+  Mix_PlayChannel(1, &sdl_sound.chunk, 0);
+
   return 1;
 }
 
@@ -131,7 +207,7 @@ static void sdl_sound_update(int enabled)
 static void sdl_sound_close()
 {
   SDL_PauseAudio(1);
-  SDL_CloseAudio();
+  Mix_CloseAudio();
   if (sdl_sound.buffer)
     free(sdl_sound.buffer);
 }
@@ -148,29 +224,44 @@ static int sdl_on_resize(void* data, SDL_Event* event) {
 md_ntsc_t *md_ntsc;
 sms_ntsc_t *sms_ntsc;
 
-static int sdl_video_init()
-{
 #if defined(USE_8BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB332;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB332
 #elif defined(USE_15BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB555;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB555
 #elif defined(USE_16BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB565;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB565
 #elif defined(USE_32BPP_RENDERING)
-  const unsigned long surface_format = SDL_PIXELFORMAT_RGB888;
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
 #endif
 
+static int sdl_video_init()
+{
   if(SDL_InitSubSystem(SDL_INIT_VIDEO) < 0) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
     return 0;
   }
-  sdl_video.window = SDL_CreateWindow("Genesis Plus GX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH, VIDEO_HEIGHT, fullscreen);
+
+  uint32 window_flags = fullscreen | SDL_WINDOW_RESIZABLE;
+
+  #ifndef __EMSCRIPTEN__
+  window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+  #endif
+
+  sdl_video.window = SDL_CreateWindow(
+    "Loading...",
+    SDL_WINDOWPOS_UNDEFINED,
+    SDL_WINDOWPOS_UNDEFINED,
+    VIDEO_WIDTH * WINDOW_SCALE,
+    VIDEO_HEIGHT * WINDOW_SCALE,
+    window_flags
+  );
+  sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
-  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(surface_format), surface_format);
+  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
+  sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
-  SDL_SetWindowResizable(sdl_video.window, SDL_TRUE);
   SDL_AddEventWatch(sdl_on_resize, sdl_video.window);
   return 1;
 }
@@ -194,81 +285,94 @@ static void sdl_video_update()
   if(bitmap.viewport.changed & 1)
   {
     sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
+
+    #ifdef SWITCH
+    sdl_video.screen_width = 1280;
+    sdl_video.screen_height = 720;
+    #else
+    sdl_video.screen_width = sdl_video.surf_screen->w;
+    sdl_video.screen_height = sdl_video.surf_screen->h;
+    #endif
+
     bitmap.viewport.changed &= ~1;
 
     /* source bitmap */
     sdl_video.srect.w = bitmap.viewport.w+2*bitmap.viewport.x;
     sdl_video.srect.h = bitmap.viewport.h+2*bitmap.viewport.y;
+    if (interlaced) sdl_video.srect.h += bitmap.viewport.h;
+
     sdl_video.srect.x = 0;
     sdl_video.srect.y = 0;
-    if (sdl_video.srect.w > sdl_video.surf_screen->w)
+    if (sdl_video.srect.w > sdl_video.screen_width)
     {
-      sdl_video.srect.x = (sdl_video.srect.w - sdl_video.surf_screen->w) / 2;
-      sdl_video.srect.w = sdl_video.surf_screen->w;
+      sdl_video.srect.x = (sdl_video.srect.w - sdl_video.screen_width) / 2;
+      sdl_video.srect.w = sdl_video.screen_width;
     }
-    if (sdl_video.srect.h > sdl_video.surf_screen->h)
+    if (sdl_video.srect.h > sdl_video.screen_height)
     {
-      sdl_video.srect.y = (sdl_video.srect.h - sdl_video.surf_screen->h) / 2;
-      sdl_video.srect.h = sdl_video.surf_screen->h;
+      sdl_video.srect.y = (sdl_video.srect.h - sdl_video.screen_height) / 2;
+      sdl_video.srect.h = sdl_video.screen_height;
     }
 
-    /* destination bitmap */
-    // sdl_video.drect.w = sdl_video.srect.w;
-    // sdl_video.drect.h = sdl_video.srect.h;
-    // sdl_video.drect.x = (sdl_video.surf_screen->w - sdl_video.drect.w) / 2;
-    // sdl_video.drect.y = (sdl_video.surf_screen->h - sdl_video.drect.h) / 2;
+    sdl_video.drect.h = sdl_video.screen_height;
 
-    sdl_video.drect.w = sdl_video.surf_screen->w;
-    sdl_video.drect.h = sdl_video.surf_screen->h;
+    if (1) { // Integer scaling
+      sdl_video.drect.h = (sdl_video.drect.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
+      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+    } else {
+      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    }
+
+    sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
+    if (interlaced) sdl_video.drect.w /= 2;
+
+    #ifdef SWITCH
     sdl_video.drect.x = 0;
     sdl_video.drect.y = 0;
+    #else
+    sdl_video.drect.x = (sdl_video.screen_width / 2.0) - (sdl_video.drect.w / 2.0);
+    sdl_video.drect.y = (sdl_video.screen_height / 2.0) - (sdl_video.drect.h / 2.0);
+    #endif
 
     /* clear destination surface */
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
-
-#if 0
-    if (config.render && (interlaced || config.ntsc))  rect.h *= 2;
-    if (config.ntsc) rect.w = (reg[12]&1) ? MD_NTSC_OUT_WIDTH(rect.w) : SMS_NTSC_OUT_WIDTH(rect.w);
-    if (config.ntsc)
-    {
-      sms_ntsc = (sms_ntsc_t *)malloc(sizeof(sms_ntsc_t));
-      md_ntsc = (md_ntsc_t *)malloc(sizeof(md_ntsc_t));
-
-      switch (config.ntsc)
-      {
-        case 1:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_composite);
-          md_ntsc_init(md_ntsc, &md_ntsc_composite);
-          break;
-        case 2:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_svideo);
-          md_ntsc_init(md_ntsc, &md_ntsc_svideo);
-          break;
-        case 3:
-          sms_ntsc_init(sms_ntsc, &sms_ntsc_rgb);
-          md_ntsc_init(md_ntsc, &md_ntsc_rgb);
-          break;
-      }
-    }
-    else
-    {
-      if (sms_ntsc)
-      {
-        free(sms_ntsc);
-        sms_ntsc = NULL;
-      }
-
-      if (md_ntsc)
-      {
-        free(md_ntsc);
-        md_ntsc = NULL;
-      }
-    }
-#endif
   }
 
-  SDL_BlitScaled(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-  SDL_UpdateWindowSurface(sdl_video.window);
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+  SDL_LockSurface(sdl_video.surf_bitmap);
+
+  Uint32 tex_fmt_id;
+  SDL_QueryTexture(sdl_video.surf_texture, &tex_fmt_id, NULL, NULL, NULL);
+
+  /* Set up a destination surface for the texture update */
+  SDL_PixelFormat *dst_fmt = SDL_AllocFormat(tex_fmt_id);
+  SDL_Surface *temp = SDL_ConvertSurface(sdl_video.surf_bitmap, dst_fmt, 0);
+
+  SDL_FreeFormat(dst_fmt);
+  SDL_UpdateTexture(sdl_video.surf_texture, NULL, temp->pixels, temp->pitch);
+  SDL_FreeSurface(temp);
+
+  if (mirrormode) {
+    SDL_RenderCopyEx(
+      sdl_video.renderer,
+      sdl_video.surf_texture,
+      &sdl_video.srect,
+      &sdl_video.drect,
+      0,
+      NULL,
+      SDL_FLIP_HORIZONTAL
+    );
+  } else {
+    SDL_RenderCopy(
+      sdl_video.renderer,
+      sdl_video.surf_texture,
+      &sdl_video.srect,
+      &sdl_video.drect
+    );
+  }
+  SDL_RenderPresent(sdl_video.renderer);
+
+  SDL_UnlockSurface(sdl_video.surf_bitmap);
 
   ++sdl_video.frames_rendered;
 }
@@ -277,55 +381,6 @@ static void sdl_video_close()
 {
   SDL_FreeSurface(sdl_video.surf_bitmap);
   SDL_DestroyWindow(sdl_video.window);
-}
-
-/* Timer Sync */
-
-struct {
-  SDL_sem* sem_sync;
-  unsigned ticks;
-} sdl_sync;
-
-static Uint32 sdl_sync_timer_callback(Uint32 interval, void *param)
-{
-  SDL_SemPost(sdl_sync.sem_sync);
-  sdl_sync.ticks++;
-  if (sdl_sync.ticks == (vdp_pal ? 50 : 60))
-  {
-    SDL_Event event;
-    SDL_UserEvent userevent;
-
-    userevent.type = SDL_USEREVENT;
-    userevent.code = sdl_video.frames_rendered;
-    userevent.data1 = NULL;
-    userevent.data2 = NULL;
-    sdl_sync.ticks = sdl_video.frames_rendered = 0;
-
-    event.type = SDL_USEREVENT;
-    event.user = userevent;
-
-    SDL_PushEvent(&event);
-  }
-  return interval;
-}
-
-static int sdl_sync_init()
-{
-  if(SDL_InitSubSystem(SDL_INIT_TIMER|SDL_INIT_EVENTS) < 0)
-  {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Timer initialization failed", sdl_video.window);
-    return 0;
-  }
-
-  sdl_sync.sem_sync = SDL_CreateSemaphore(0);
-  sdl_sync.ticks = 0;
-  return 1;
-}
-
-static void sdl_sync_close()
-{
-  if(sdl_sync.sem_sync)
-    SDL_DestroySemaphore(sdl_sync.sem_sync);
 }
 
 static const uint16 vc_table[4][2] =
@@ -347,47 +402,28 @@ static int sdl_control_update(SDL_Keycode keystate)
         break;
       }
 
-      case SDLK_F1:
+      case SDLK_F11:
       {
-        if (SDL_ShowCursor(-1)) SDL_ShowCursor(0);
-        else SDL_ShowCursor(1);
-        break;
-      }
-
-      case SDLK_F2:
-      {
-        fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN);
+        fullscreen = (fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP );
         SDL_SetWindowFullscreen(sdl_video.window, fullscreen);
         bitmap.viewport.changed = 1;
         break;
       }
 
-      case SDLK_F3:
-      {
-        if (config.bios == 0) config.bios = 3;
-        else if (config.bios == 3) config.bios = 1;
-        break;
-      }
-
-      case SDLK_F4:
-      {
-        if (!turbo_mode) use_sound ^= 1;
-        break;
-      }
-
-      case SDLK_F5:
-      {
-        log_error ^= 1;
-        break;
-      }
+      // case SDLK_F4:
+      // {
+      //   if (!turbo_mode) use_sound ^= 1;
+      //   break;
+      // }
 
       case SDLK_F6:
       {
-        if (!use_sound)
-        {
+        // if (!use_sound)
+        // {
+          use_sound ^= 1;
           turbo_mode ^=1;
-          sdl_sync.ticks = 0;
-        }
+          // sdl_sync.ticks = 0;
+        // }
         break;
       }
 
@@ -417,82 +453,6 @@ static int sdl_control_update(SDL_Keycode keystate)
         break;
       }
 
-      case SDLK_F9:
-      {
-        config.region_detect = (config.region_detect + 1) % 5;
-        get_region(0);
-
-        /* framerate has changed, reinitialize audio timings */
-        audio_init(snd.sample_rate, 0);
-
-        /* system with region BIOS should be reinitialized */
-        if ((system_hw == SYSTEM_MCD) || ((system_hw & SYSTEM_SMS) && (config.bios & 1)))
-        {
-          system_init();
-          system_reset();
-        }
-        else
-        {
-          /* reinitialize I/O region register */
-          if (system_hw == SYSTEM_MD)
-          {
-            io_reg[0x00] = 0x20 | region_code | (config.bios & 1);
-          }
-          else
-          {
-            io_reg[0x00] = 0x80 | (region_code >> 1);
-          }
-
-          /* reinitialize VDP */
-          if (vdp_pal)
-          {
-            status |= 1;
-            lines_per_frame = 313;
-          }
-          else
-          {
-            status &= ~1;
-            lines_per_frame = 313;
-          }
-
-          /* reinitialize VC max value */
-          switch (bitmap.viewport.h)
-          {
-            case 192:
-              vc_max = vc_table[0][vdp_pal];
-              break;
-            case 224:
-              vc_max = vc_table[1][vdp_pal];
-              break;
-            case 240:
-              vc_max = vc_table[3][vdp_pal];
-              break;
-          }
-        }
-        break;
-      }
-
-      case SDLK_F10:
-      {
-        gen_reset(0);
-        break;
-      }
-
-      case SDLK_F11:
-      {
-        config.overscan =  (config.overscan + 1) & 3;
-        if ((system_hw == SYSTEM_GG) && !config.gg_extra)
-        {
-          bitmap.viewport.x = (config.overscan & 2) ? 14 : -48;
-        }
-        else
-        {
-          bitmap.viewport.x = (config.overscan & 2) * 7;
-        }
-        bitmap.viewport.changed = 3;
-        break;
-      }
-
       case SDLK_F12:
       {
         joynum = (joynum + 1) % MAX_DEVICES;
@@ -515,6 +475,8 @@ static int sdl_control_update(SDL_Keycode keystate)
    return 1;
 }
 
+SDL_GameController* controller;
+
 int sdl_input_update(void)
 {
   const uint8 *keystate = SDL_GetKeyboardState(NULL);
@@ -531,10 +493,10 @@ int sdl_input_update(void)
       int state = SDL_GetMouseState(&x,&y);
 
       /* X axis */
-      input.analog[joynum][0] =  x - (sdl_video.surf_screen->w-bitmap.viewport.w)/2;
+      input.analog[joynum][0] =  x - (sdl_video.screen_width-bitmap.viewport.w)/2;
 
       /* Y axis */
-      input.analog[joynum][1] =  y - (sdl_video.surf_screen->h-bitmap.viewport.h)/2;
+      input.analog[joynum][1] =  y - (sdl_video.screen_height-bitmap.viewport.h)/2;
 
       /* TRIGGER, B, C (Menacer only), START (Menacer & Justifier only) */
       if(state & SDL_BUTTON_LMASK) input.pad[joynum] |= INPUT_A;
@@ -551,7 +513,7 @@ int sdl_input_update(void)
       int state = SDL_GetMouseState(&x, NULL);
 
       /* Range is [0;256], 128 being middle position */
-      input.analog[joynum][0] = x * 256 /sdl_video.surf_screen->w;
+      input.analog[joynum][0] = x * 256 /sdl_video.screen_width;
 
       /* Button I -> 0 0 0 0 0 0 0 I*/
       if(state & SDL_BUTTON_LMASK) input.pad[joynum] |= INPUT_B;
@@ -646,8 +608,8 @@ int sdl_input_update(void)
       int state = SDL_GetMouseState(&x,&y);
 
       /* Calculate X Y axis values */
-      input.analog[0][0] = 0x3c  + (x * (0x17c-0x03c+1)) / sdl_video.surf_screen->w;
-      input.analog[0][1] = 0x1fc + (y * (0x2f7-0x1fc+1)) / sdl_video.surf_screen->h;
+      input.analog[0][0] = 0x3c  + (x * (0x17c-0x03c+1)) / sdl_video.screen_width;
+      input.analog[0][1] = 0x1fc + (y * (0x2f7-0x1fc+1)) / sdl_video.screen_height;
 
       /* Map mouse buttons to player #1 inputs */
       if(state & SDL_BUTTON_MMASK) pico_current = (pico_current + 1) & 7;
@@ -664,8 +626,8 @@ int sdl_input_update(void)
       int state = SDL_GetMouseState(&x,&y);
 
       /* Calculate X Y axis values */
-      input.analog[0][0] = (x * 250) / sdl_video.surf_screen->w;
-      input.analog[0][1] = (y * 250) / sdl_video.surf_screen->h;
+      input.analog[0][0] = (x * 250) / sdl_video.screen_width;
+      input.analog[0][1] = (y * 250) / sdl_video.screen_height;
 
       /* Map mouse buttons to player #1 inputs */
       if(state & SDL_BUTTON_RMASK) input.pad[0] |= INPUT_B;
@@ -680,8 +642,8 @@ int sdl_input_update(void)
       int state = SDL_GetMouseState(&x,&y);
 
       /* Calculate X Y axis values */
-      input.analog[0][0] = (x * 255) / sdl_video.surf_screen->w;
-      input.analog[0][1] = (y * 255) / sdl_video.surf_screen->h;
+      input.analog[0][0] = (x * 255) / 1280;
+      input.analog[0][1] = (y * 255) / 720;
 
       /* Map mouse buttons to player #1 inputs */
       if(state & SDL_BUTTON_LMASK) input.pad[0] |= INPUT_GRAPHIC_PEN;
@@ -717,8 +679,97 @@ int sdl_input_update(void)
       else
       if(keystate[SDL_SCANCODE_RIGHT]) input.pad[joynum] |= INPUT_RIGHT;
 
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A))
+        input.pad[joynum] |= INPUT_A;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B))
+        input.pad[joynum] |= INPUT_B;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X))
+        input.pad[joynum] |= INPUT_C;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START))
+        input.pad[joynum] |= INPUT_START;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
+        input.pad[joynum] |= INPUT_UP;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
+        input.pad[joynum] |= INPUT_DOWN;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
+        input.pad[joynum] |= INPUT_LEFT;
+
+      if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
+        input.pad[joynum] |= INPUT_RIGHT;
+
+      int axis_lx = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+      int axis_ly = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+
+      double deadzone_l = 10000;
+      double intensity_l = sqrt(pow(axis_lx, 2) + pow(axis_ly, 2));
+      double angle_l = atan2((double)axis_ly, (double)axis_lx) + M_PI;
+
+      // printf("%i, %i, %f, %f\n", axis_lx, axis_ly, intensity_l, angle_l);
+      double angle_overlap_x = M_PI_4 / 8.0;
+      double angle_overlap_y = M_PI_4 / 8.0;
+
+      double deadzone_lx_analog_upper = 10000;
+      double intensity_lx_adj = min(1, max(0,
+        (abs(axis_lx) - deadzone_l) /
+        (32767.0 - deadzone_lx_analog_upper - deadzone_l)
+      ));
+
+      intensity_lx_adj = ((intensity_lx_adj - 0) * (1 - 0.9)) / ((1 - 0) + 0.9);
+      int allow_horiz = 1;
+      if (intensity_lx_adj < 1.0) {
+        double frametimer_period = 3.0;
+        allow_horiz = (
+          (int)(frametimer / frametimer_period) %
+          (
+            (int)(60.0 / frametimer_period) -
+            (int)(intensity_lx_adj * (60.0 / frametimer_period))
+          )
+        ) == 0;
+      }
+
+      if (intensity_l > deadzone_l) {
+        if (
+          (
+            (angle_l < M_PI_4 + angle_overlap_x) ||
+            (angle_l > ((2*M_PI) - M_PI_4 - angle_overlap_x))
+          ) && (allow_horiz)
+        ) input.pad[joynum] |= INPUT_LEFT;
+
+        if (
+          (
+            (angle_l < (M_PI + M_PI_4 + angle_overlap_x)) &&
+            (angle_l > (M_PI - M_PI_4 - angle_overlap_x))
+          ) && (allow_horiz)
+        ) input.pad[joynum] |= INPUT_RIGHT;
+
+        if (
+          (angle_l < (M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+          (angle_l > (M_PI_2 - M_PI_4 - angle_overlap_y))
+        ) input.pad[joynum] |= INPUT_UP;
+
+        if (
+          (angle_l < (M_PI + M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+          (angle_l > (M_PI + M_PI_2 - M_PI_4 - angle_overlap_y))
+        ) input.pad[joynum] |= INPUT_DOWN;
+
+      }
+
       break;
     }
+  }
+
+  if (mirrormode) {
+    int val_left = input.pad[joynum] & INPUT_LEFT;
+    int val_right = input.pad[joynum] & INPUT_RIGHT;
+    input.pad[joynum] &= ~(INPUT_LEFT | INPUT_RIGHT);
+    if (val_left) input.pad[joynum] |= INPUT_RIGHT;
+    if (val_right) input.pad[joynum] |= INPUT_LEFT;
   }
   return 1;
 }
@@ -748,19 +799,52 @@ static void update_overclock(void)
 }
 #endif
 
+int running = 1;
+
+void mainloop() {
+  SDL_Event event;
+  if (SDL_PollEvent(&event))
+  {
+    switch(event.type)
+    {
+      case SDL_QUIT:
+      {
+        running = 0;
+        break;
+      }
+
+      case SDL_KEYDOWN:
+      {
+        running = sdl_control_update(event.key.keysym.sym);
+        break;
+      }
+    }
+  }
+
+  gamehacks_update();
+
+  #ifdef HAVE_OVERCLOCK
+    /* update overclock delay */
+    if (overclock_enable && overclock_delay && --overclock_delay == 0)
+        update_overclock();
+  #endif
+
+  sdl_video_update();
+  sdl_sound_update(use_sound);
+
+  frametimer++;
+}
+
 int main (int argc, char **argv)
 {
-  FILE *fp;
-  int running = 1;
+  printf("Emulator start\n");
 
-  /* Print help if no game specified */
-  if(argc < 2)
-  {
-    char caption[256];
-    sprintf(caption, "Genesis Plus GX\\SDL\nusage: %s gamename\n", argv[0]);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Information", caption, sdl_video.window);
-    return 1;
-  }
+  #ifdef ENABLE_NXLINK
+  socketInitializeDefault();
+  nxlinkStdio();
+  #endif
+  
+  FILE *fp;
 
   /* set default config */
   error_init();
@@ -804,7 +888,10 @@ int main (int argc, char **argv)
   }
   sdl_video_init();
   if (use_sound) sdl_sound_init();
-  sdl_sync_init();
+
+  SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+  SDL_JoystickEventState(SDL_ENABLE);
+  SDL_JoystickOpen(0);
 
   /* initialize Genesis virtual system */
   SDL_LockSurface(sdl_video.surf_bitmap);
@@ -820,18 +907,32 @@ int main (int argc, char **argv)
 #elif defined(USE_32BPP_RENDERING)
   bitmap.pitch        = (bitmap.width * 4);
 #endif
-  bitmap.data         = sdl_video.surf_bitmap->pixels;
+  bitmap.data         = (unsigned char *)sdl_video.surf_bitmap->pixels;
   SDL_UnlockSurface(sdl_video.surf_bitmap);
   bitmap.viewport.changed = 3;
 
+  char * rom_path = argv[1];
+  if (rom_path == NULL) rom_path = "./rom.bin";
+
   /* Load game file */
-  if(!load_rom(argv[1]))
+  if(!load_rom(rom_path))
   {
     char caption[256];
-    sprintf(caption, "Error loading file `%s'.", argv[1]);
+    sprintf(caption, "Error loading file `%s'.", rom_path);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", caption, sdl_video.window);
+    #ifdef ENABLE_NXLINK
+    socketExit();
+    #endif
     return 1;
   }
+
+  char caption[100];
+  sprintf(caption,"%s", rominfo.international);
+  SDL_SetWindowTitle(sdl_video.window, caption);
+
+#ifdef HAVE_OVERCLOCK
+    overclock_delay = OVERCLOCK_FRAME_DELAY;
+#endif
 
   /* initialize system hardware */
   audio_init(SOUND_FREQUENCY, 0);
@@ -904,125 +1005,98 @@ int main (int argc, char **argv)
 
   if(use_sound) SDL_PauseAudio(0);
 
-  /* 3 frames = 50 ms (60hz) or 60 ms (50hz) */
-  /* heyjoeway: excuse me? 3 frames? why the fuck are we waiting
-      frames to update the fucking screen? NO
-      actually, you know what, this whole fucking timing methods sucks */
-  // if(sdl_sync.sem_sync)
-  //   SDL_AddTimer(vdp_pal ? 20 : 16, sdl_sync_timer_callback, NULL);
-
-  // Uint64 prev = 0, now = 0;
-
   long double framerateMilliseconds = 1000.0 / 60.0;
   unsigned int vsyncMultiple;
 
+  controller = SDL_GameControllerOpen(0);
+
+  gamehacks_init();
 
   /* emulation loop */
-  while(running)
-  {
-    // now = SDL_GetPerformanceCounter();
-    // double frametime = (double)((now - prev)*1000) / SDL_GetPerformanceFrequency();
-    // if (frametime < 16.66667) continue;
-    // prev = now;
+  #ifdef __EMSCRIPTEN__
+   emscripten_set_main_loop(&mainloop, 60, 1);
+  #else
+    while(running) {
+      mainloop();
+      
+      if (turbo_mode) continue;
 
-    SDL_Event event;
-    if (SDL_PollEvent(&event))
-    {
-      switch(event.type)
+      static long double timePrev;
+      const uint32_t timeNow = SDL_GetTicks();
+      const long double timeNext = timePrev + framerateMilliseconds;
+
+      if (timeNow >= timePrev + 100)
       {
-        case SDL_USEREVENT:
-        {
-          char caption[100];
-          sprintf(caption,"Genesis Plus GX - %d fps - %s", event.user.code, (rominfo.international[0] != 0x20) ? rominfo.international : rominfo.domestic);
-          SDL_SetWindowTitle(sdl_video.window, caption);
-          break;
-        }
+        timePrev = (long double)timeNow;
+      }
+      else
+      {
+        if (timeNow < timeNext)
+          SDL_Delay(timeNext - timeNow);
+        timePrev += framerateMilliseconds;
+      }
+    }
 
-        case SDL_QUIT:
+    if (system_hw == SYSTEM_MCD)
+    {
+      /* save internal backup RAM (if formatted) */
+      if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
+      {
+        fp = fopen("./scd.brm", "wb");
+        if (fp!=NULL)
         {
-          running = 0;
-          break;
+          fwrite(scd.bram, 0x2000, 1, fp);
+          fclose(fp);
         }
+      }
 
-        case SDL_KEYDOWN:
+      /* save cartridge backup RAM (if formatted) */
+      if (scd.cartridge.id)
+      {
+        if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
         {
-          running = sdl_control_update(event.key.keysym.sym);
-          break;
+          fp = fopen("./cart.brm", "wb");
+          if (fp!=NULL)
+          {
+            fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
+            fclose(fp);
+          }
         }
       }
     }
 
-    #ifdef HAVE_OVERCLOCK
-      /* update overclock delay */
-      if (overclock_delay && --overclock_delay == 0)
-          update_overclock();
-    #endif
-
-    sdl_video_update();
-    sdl_sound_update(use_sound);
-
-    static long double timePrev;
-    const uint32_t timeNow = SDL_GetTicks();
-    const long double timeNext = timePrev + framerateMilliseconds;
-    
-    if (timeNow >= timePrev + 100)
+    if (sram.on)
     {
-      timePrev = (long double)timeNow;
-    }
-    else
-    {
-      if (timeNow < timeNext)
-        SDL_Delay(timeNext - timeNow);
-      timePrev += framerateMilliseconds;
-    }
-  }
-
-  if (system_hw == SYSTEM_MCD)
-  {
-    /* save internal backup RAM (if formatted) */
-    if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
-    {
-      fp = fopen("./scd.brm", "wb");
+      /* save SRAM */
+      fp = fopen("./game.srm", "wb");
       if (fp!=NULL)
       {
-        fwrite(scd.bram, 0x2000, 1, fp);
+        fwrite(sram.sram,0x10000,1, fp);
         fclose(fp);
       }
     }
 
-    /* save cartridge backup RAM (if formatted) */
-    if (scd.cartridge.id)
-    {
-      if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
-      {
-        fp = fopen("./cart.brm", "wb");
-        if (fp!=NULL)
-        {
-          fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
-          fclose(fp);
-        }
-      }
-    }
-  }
+    gamehacks_deinit();
 
-  if (sram.on)
-  {
-    /* save SRAM */
-    fp = fopen("./game.srm", "wb");
-    if (fp!=NULL)
-    {
-      fwrite(sram.sram,0x10000,1, fp);
-      fclose(fp);
-    }
-  }
+    audio_shutdown();
+    error_shutdown();
 
-  audio_shutdown();
-  error_shutdown();
+    sdl_video_close();
+    sdl_sound_close();
+    SDL_Quit();
 
-  sdl_video_close();
-  sdl_sound_close();
-  sdl_sync_close();
-  SDL_Quit();
-
+    #ifdef ENABLE_NXLINK
+    socketExit();
+    #endif
+  #endif
+  
   return 0;
 }
+
+#ifdef _WIN32
+int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
+{
+    SetProcessDPIAware();
+    return main(__argc, __argv);
+}
+#endif

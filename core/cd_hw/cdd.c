@@ -154,7 +154,7 @@ static const char extensions[SUPPORTED_EXT][16] =
 
 #if defined(USE_LIBTREMOR) || defined(USE_LIBVORBIS)
 
-static int seek64_wrap(void *f,ogg_int64_t off,int whence){
+static int seek64_wrap(FILE *f,ogg_int64_t off,int whence){
   return cdStreamSeek(f,off,whence);
 }
 

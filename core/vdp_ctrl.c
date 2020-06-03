@@ -1971,7 +1971,7 @@ static void vdp_reg_w(unsigned int r, unsigned int d, unsigned int cycles)
           window_clip(reg[17], 1);
 
           /* Update max sprite pixels per line*/
-          max_sprite_pixels = 320;
+          max_sprite_pixels = 400;
 
           /* FIFO access slots timings */
           fifo_timing = (int *)fifo_timing_h40;

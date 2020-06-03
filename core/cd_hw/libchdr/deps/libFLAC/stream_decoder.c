@@ -30,6 +30,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
@@ -3398,3 +3402,7 @@ FLAC__bool file_eof_callback_(const FLAC__StreamDecoder *decoder, void *client_d
 
 	return feof(decoder->private_->file)? true : false;
 }
+
+#ifdef __cplusplus
+}
+#endif
