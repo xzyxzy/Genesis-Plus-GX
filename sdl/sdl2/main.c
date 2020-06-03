@@ -74,6 +74,7 @@ static int overclock_enable = 1;
     #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
+int mirrormode = 0;
 int joynum = 0;
 uint64 frametimer = 0;
 
@@ -351,7 +352,24 @@ static void sdl_video_update()
   SDL_UpdateTexture(sdl_video.surf_texture, NULL, temp->pixels, temp->pitch);
   SDL_FreeSurface(temp);
 
-  SDL_RenderCopy(sdl_video.renderer, sdl_video.surf_texture, &sdl_video.srect, &sdl_video.drect);
+  if (mirrormode) {
+    SDL_RenderCopyEx(
+      sdl_video.renderer,
+      sdl_video.surf_texture,
+      &sdl_video.srect,
+      &sdl_video.drect,
+      0,
+      NULL,
+      SDL_FLIP_HORIZONTAL
+    );
+  } else {
+    SDL_RenderCopy(
+      sdl_video.renderer,
+      sdl_video.surf_texture,
+      &sdl_video.srect,
+      &sdl_video.drect
+    );
+  }
   SDL_RenderPresent(sdl_video.renderer);
 
   SDL_UnlockSurface(sdl_video.surf_bitmap);
@@ -744,6 +762,14 @@ int sdl_input_update(void)
 
       break;
     }
+  }
+
+  if (mirrormode) {
+    int val_left = input.pad[joynum] & INPUT_LEFT;
+    int val_right = input.pad[joynum] & INPUT_RIGHT;
+    input.pad[joynum] &= ~(INPUT_LEFT | INPUT_RIGHT);
+    if (val_left) input.pad[joynum] |= INPUT_RIGHT;
+    if (val_right) input.pad[joynum] |= INPUT_LEFT;
   }
   return 1;
 }

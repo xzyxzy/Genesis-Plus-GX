@@ -38,7 +38,6 @@ ifdef EMSCRIPTEN
 	WINDOWS = 0
 	PKGCONFIG = :
 	CFLAGS += -s USE_SDL=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
-	CC = $(CXX)
 endif
 
 ifeq ($(SWITCH), 1)
@@ -58,10 +57,9 @@ ifeq ($(SWITCH), 1)
 	ifdef ENABLE_NXLINK
 		CXXFLAGS += -DENABLE_NXLINK
 	endif
-
-	CC = $(CXX)
 endif
 
+CC = $(CXX)
 CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer sdl2 zlib flac vorbis vorbisfile opusfile libmpg123` -fomit-frame-pointer -Wall -Wno-strict-aliasing -Wno-narrowing -fpermissive -static
 LDFLAGS   = $(CFLAGS)
 DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS -DMAXROMSIZE=33554432 \
