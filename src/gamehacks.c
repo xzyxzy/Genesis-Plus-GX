@@ -1,15 +1,10 @@
-// Include the main libnx system header, for Switch development
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
-
 #include "shared.h"
+#include "backends/sound/sound_base.h"
 
 #define mQueue 0xEE32-1
 #define mFlags 0xEE20+1
 #define Current_Zone 0xFADA-1
 #define Current_Act 0xFADB-1
-
-Mix_Music *music;
 
 int id_music_start = 0x0B;
 int id_music_end = 0x2A;
@@ -27,9 +22,7 @@ int gamehacks_sound_ispaused() {
     return (work_ram[mFlags] >> 7) & 1;
 }
 
-void gamehacks_init() {
-    Mix_Init(MIX_INIT_OGG);
-}
+void gamehacks_init() { }
 
 // int gamehacks_play_sfx(int id) {
 //     if (id == 0xa5) return id;
@@ -51,21 +44,8 @@ void gamehacks_init() {
 // }
 
 int gamehacks_play_music_path(char *path) {
-    Mix_HaltMusic();
-    Mix_FreeMusic(music);
-
-    music = Mix_LoadMUS(path);
-    
-    if (music == NULL) {
-        // printf("Unable to load Ogg file: %s\n", Mix_GetError());
-        return 0;
-    }
-
-    if (Mix_PlayMusic(music, 0) == -1) {
-        // printf("Unable to play Ogg file: %s\n", Mix_GetError());
-        return 0;
-    }
-
+    Backend_Sound_StopMusic();
+    if (!Backend_Sound_PlayMusic(path)) return 0;
     return 3;
 }
 
@@ -99,7 +79,7 @@ int gamehacks_play_sound(int id) {
     if (id == 0) return id;
  
     if (id == 2) {
-        Mix_FadeOutMusic(750);
+        Backend_Sound_FadeOutMusic(750);
         return id;
     }
 
@@ -125,9 +105,9 @@ void gamehacks_update_sound() {
 
     int paused = gamehacks_sound_ispaused();
     if (paused && !gamehacks_sound_ispaused_prev) {
-        Mix_PauseMusic();
+        Backend_Sound_PauseMusic();
     } else if (!paused && gamehacks_sound_ispaused_prev) {
-        Mix_ResumeMusic();
+        Backend_Sound_ResumeMusic();
     }
 
     gamehacks_sound_ispaused_prev = paused;
@@ -138,9 +118,7 @@ void gamehacks_update_sound() {
 }
 
 void gamehacks_update() {
-    return;
     gamehacks_update_sound();
 }
 
-void gamehacks_deinit() {
-}
+void gamehacks_deinit() { }

@@ -29,7 +29,7 @@ extern "C" {
 short soundframe[SOUND_SAMPLES_SIZE];
 
 #include "backends/video/video_base.h"
-bool mirrormode = false;
+int mirrormode = 0;
 
 #include "backends/input/input_base.h"
 

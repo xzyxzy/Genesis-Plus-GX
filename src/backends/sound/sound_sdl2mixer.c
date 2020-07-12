@@ -3,6 +3,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
 
+Mix_Music *music;
+
 struct {
   char* current_pos;
   char* buffer;
@@ -36,6 +38,40 @@ static void SDLMixer_callback(int channel)
   Mix_PlayChannel(1, chunk, 0);
 }
 
+int Backend_Sound_PlayMusic(char *path) {
+  music = Mix_LoadMUS(path);
+
+  if (music == NULL) {
+      printf("Unable to load Ogg file: %s\n", Mix_GetError());
+      return 0;
+  }
+
+  if (Mix_PlayMusic(music, 0) == -1) {
+      printf("Unable to play Ogg file: %s\n", Mix_GetError());
+      return 0;
+  }
+  
+  return 1;
+}
+int Backend_Sound_StopMusic() {
+  Mix_HaltMusic();
+  Mix_FreeMusic(music);
+  
+  return 1;
+}
+int Backend_Sound_FadeOutMusic(int fadeTime) {
+  Mix_FadeOutMusic(fadeTime);
+  return 1;
+}
+int Backend_Sound_PauseMusic() {
+  Mix_PauseMusic(); 
+  return 1;
+}
+int Backend_Sound_ResumeMusic() {
+  Mix_ResumeMusic();
+  return 1;
+}
+
 int Backend_Sound_Pause() {
   SDL_PauseAudio(0);
   return 1;
@@ -49,8 +85,7 @@ int Backend_Sound_Close() {
   return 1;
 }
 
-int Backend_Sound_Init()
-{
+int Backend_Sound_Init() {
   int n;
   SDL_AudioSpec as_desired;
 
@@ -59,11 +94,12 @@ int Backend_Sound_Init()
     return 0;
   }
 
-
   if(Mix_OpenAudio(SOUND_FREQUENCY, AUDIO_S16LSB, 2, SOUND_SAMPLES_SIZE) < 0) {
     printf("SDL Audio open failed\n");
     return 0;
   }
+
+  Mix_Init(MIX_INIT_OGG);
 
   sdl_sound.current_emulated_samples = 0;
   n = SOUND_SAMPLES_SIZE * 2 * sizeof(short) * 20;

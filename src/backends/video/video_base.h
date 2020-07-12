@@ -6,11 +6,11 @@
 
 #define WINDOW_SCALE 3
 
-extern bool mirrormode;
+extern int mirrormode;
 
 int Backend_Video_Close();
 int Backend_Video_Init();
-int Backend_Video_SetFullscreen(bool arg_fullscreen);
+int Backend_Video_SetFullscreen(int arg_fullscreen);
 int Backend_Video_ToggleFullscreen();
 int Backend_Video_Update();
 int Backend_Video_CopyBitmap();

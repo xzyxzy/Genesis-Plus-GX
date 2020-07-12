@@ -24,7 +24,7 @@ struct {
   Uint32 frames_rendered;
   Uint16 screen_width;
   Uint16 screen_height;
-  bool fullscreen;
+  int fullscreen;
 } sdl_video;
 
 
@@ -182,7 +182,7 @@ int Backend_Video_Close() {
   return 1;
 }
 
-int Backend_Video_SetFullscreen(bool arg_fullscreen) {
+int Backend_Video_SetFullscreen(int arg_fullscreen) {
   sdl_video.fullscreen = arg_fullscreen;
   SDL_SetWindowFullscreen(sdl_video.window, sdl_video.fullscreen);
 

@@ -32,38 +32,48 @@ SUFFIX	  =
 CC        = gcc
 PKGCONFIG = pkg-config
 
+BACKEND_VIDEO ?= sdl2
+BACKEND_INPUT ?= sdl2
+BACKEND_AUDIO ?= sdl2mixer
+
+SRCDIR    = ./src
+
+# =============================================================================
 # Detect default platform if not explicitly specified
+# =============================================================================
+
 ifeq ($(OS),Windows_NT)
 	PLATFORM ?= Windows
 endif
 
-# Detect explicitly-defined platforms
-
-# Now here's the real platform-specific stuff
 ifdef EMSCRIPTEN
 	PLATFORM = Emscripten
+endif
+
+PLATFORM ?= Unknown
+
+# =============================================================================
+# Detect explicitly-defined platforms
+# =============================================================================
+
+ifeq ($(PLATFORM),Emscripten)
+	CC = $(CXX)
 	PKGCONFIG = :
 	CFLAGS += -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
 	DEFINES += -DHAVE_ALLOCA_H
 	SUFFIX = js
 endif
 
-ifeq ($(SWITCH), 1)
-	ifeq ($(strip $(DEVKITPRO)),)
-		$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
-	endif
-
-	PLATFORM = Switch
-
+ifeq ($(PLATFORM),Switch)
 	include $(DEVKITPRO)/libnx/switch_rules
 	INCLUDES += -I$(LIBNX)/include -I$(PORTLIBS)/include/SDL2 -I$(PORTLIBS)/include
 
-	CFLAGS += -DARM -march=armv8-a -mtune=cortex-a57 -mtp=soft -DLSB_FIRST -DBYTE_ORDER=LITTLE_ENDIAN -DALIGN_LONG -DALIGN_WORD -DM68K_OVERCLOCK_SHIFT=20 -DHAVE_ZLIB -DSWITCH -fPIE -Wl,--allow-multiple-definition -specs=$(DEVKITPRO)/libnx/switch.specs  $(INCLUDE)
+	CFLAGS += -DARM -march=armv8-a -mtune=cortex-a57 -mtp=soft -DLSB_FIRST -DBYTE_ORDER=LITTLE_ENDIAN -DALIGN_LONG -DALIGN_WORD -DM68K_OVERCLOCK_SHIFT=20 -DHAVE_ZLIB -DSWITCH -fPIE -Wl,--allow-multiple-definition -specs=$(DEVKITPRO)/libnx/switch.specs
 	LIBS += -L$(LIBNX)/lib -lnx -lm
 	PKGCONFIG = $(DEVKITPRO)/portlibs/switch/bin/aarch64-none-elf-pkg-config
 
-	ifdef ENABLE_NXLINK
-		CXXFLAGS += -DENABLE_NXLINK
+	ifdef NXLINK
+		CFLAGS += -DENABLE_NXLINK
 	endif
 
 	SUFFIX = nro
@@ -71,27 +81,61 @@ ifeq ($(SWITCH), 1)
 	DEFINES += -DHAVE_ALLOCA_H
 endif
 
-PLATFORM ?= Unknown
-
 ifeq ($(PLATFORM),Windows)
 	LIBS += -lshlwapi -mconsole
 	OBJECTS	+=	$(OBJDIR)/icon.o
 	SUFFIX = exe
 endif
 
-CC = $(CXX)
-CFLAGS += `$(PKGCONFIG) --static --cflags \
-	SDL2_mixer sdl2 zlib flac vorbis vorbisfile opusfile libmpg123`
+# =============================================================================
+# SDL2 Backend
+# =============================================================================
+
+ifeq ($(BACKEND_VIDEO),sdl2)
+	CFLAGS += `$(PKGCONFIG) --static --cflags sdl2`
+	LIBS += `$(PKGCONFIG) --static --libs sdl2`
+	SOURCES +=	backends/video/video_sdl2
+endif
+
+ifeq ($(BACKEND_INPUT),sdl2)
+	CFLAGS += `$(PKGCONFIG) --static --cflags sdl2`
+	LIBS += `$(PKGCONFIG) --static --libs sdl2`
+	SOURCES +=	backends/input/input_sdl2
+endif
+
+ifeq ($(BACKEND_AUDIO),sdl2mixer)
+	CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer opusfile libmpg123 flac`
+	LIBS += `$(PKGCONFIG) --static --libs SDL2_mixer opusfile libmpg123 flac`
+	SOURCES +=	backends/sound/sound_sdl2mixer
+endif
+
+# =============================================================================
+# Null Backend
+# =============================================================================
+
+ifeq ($(BACKEND_VIDEO),null)
+	SOURCES +=	backends/video/video_null
+endif
+
+ifeq ($(BACKEND_INPUT),null)
+	SOURCES +=	backends/input/input_null
+endif
+
+ifeq ($(BACKEND_AUDIO),null)
+	SOURCES +=	backends/sound/sound_null
+endif
+
+# =============================================================================
+
+CFLAGS += `$(PKGCONFIG) --static --cflags zlib vorbisfile`
+LIBS   += `$(PKGCONFIG) --static --libs zlib vorbisfile`
+
 CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings -static
 LDFLAGS   = $(CFLAGS)
 
 DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS \
 			-DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT \
 			-DM68K_OVERCLOCK_SHIFT=20
-
-
-
-SRCDIR    = ./src
 
 INCLUDES  += 	-I$(SRCDIR) \
 				-I$(SRCDIR)/core \
@@ -107,86 +151,75 @@ INCLUDES  += 	-I$(SRCDIR) \
 				-I$(SRCDIR)/backends/sound \
 				-I$(SRCDIR)/backends/video
 
-LIBS	  += `$(PKGCONFIG) --static --libs SDL2_mixer sdl2 zlib flac vorbis vorbisfile opusfile libmpg123`
-
 INCLUDES += $(LIBS)
 
-CHDLIBDIR = $(SRCDIR)/core/cd_hw/libchdr
+# Core Sources
+SOURCES	+=	core/z80/z80 \
+			core/m68k/m68kcpu \
+			core/m68k/s68kcpu \
+			core/genesis \
+			core/vdp_ctrl \
+			core/vdp_render \
+			core/system \
+			core/io_ctrl \
+			core/mem68k \
+			core/memz80 \
+			core/membnk \
+			core/state \
+			core/loadrom	\
+			core/input_hw/input \
+			core/input_hw/gamepad \
+			core/input_hw/lightgun \
+			core/input_hw/mouse \
+			core/input_hw/activator \
+			core/input_hw/xe_1ap \
+			core/input_hw/teamplayer \
+			core/input_hw/paddle \
+			core/input_hw/sportspad \
+			core/input_hw/terebi_oekaki \
+			core/input_hw/graphic_board \
+			core/sound/sound \
+			core/sound/psg \
+			core/sound/opll \
+			core/sound/ym2413 \
+			core/sound/ym3438 \
+			core/sound/ym2612 \
+			core/sound/blip_buf \
+			core/sound/eq \
+			core/cart_hw/sram \
+			core/cart_hw/svp/svp \
+			core/cart_hw/svp/ssp16 \
+			core/cart_hw/ggenie \
+			core/cart_hw/areplay \
+			core/cart_hw/eeprom_93c \
+			core/cart_hw/eeprom_i2c \
+			core/cart_hw/eeprom_spi \
+			core/cart_hw/md_cart \
+			core/cart_hw/sms_cart \
+			core/cd_hw/scd \
+			core/cd_hw/cdd \
+			core/cd_hw/cdc \
+			core/cd_hw/gfx \
+			core/cd_hw/pcm \
+			core/cd_hw/cd_cart \
+			core/ntsc/sms_ntsc \
+			core/ntsc/md_ntsc
 
-OBJECTS	+=       $(OBJDIR)/z80.o	
+# Main Sources
+SOURCES	+=	main \
+			config \
+			error \
+			ioapi \
+			unzip \
+			fileio \
+			gamehacks
 
-OBJECTS	+=     	$(OBJDIR)/m68kcpu.o \
-		$(OBJDIR)/s68kcpu.o
-
-OBJECTS	+=     	$(OBJDIR)/genesis.o	 \
-		$(OBJDIR)/vdp_ctrl.o	 \
-		$(OBJDIR)/vdp_render.o   \
-		$(OBJDIR)/system.o       \
-		$(OBJDIR)/io_ctrl.o	 \
-		$(OBJDIR)/mem68k.o	 \
-		$(OBJDIR)/memz80.o	 \
-		$(OBJDIR)/membnk.o	 \
-		$(OBJDIR)/state.o        \
-		$(OBJDIR)/loadrom.o	
-
-OBJECTS	+=      $(OBJDIR)/input.o	  \
-		$(OBJDIR)/gamepad.o	  \
-		$(OBJDIR)/lightgun.o	  \
-		$(OBJDIR)/mouse.o	  \
-		$(OBJDIR)/activator.o	  \
-		$(OBJDIR)/xe_1ap.o	  \
-		$(OBJDIR)/teamplayer.o    \
-		$(OBJDIR)/paddle.o	  \
-		$(OBJDIR)/sportspad.o     \
-		$(OBJDIR)/terebi_oekaki.o \
-		$(OBJDIR)/graphic_board.o
-
-OBJECTS	+=      $(OBJDIR)/sound.o	\
-		$(OBJDIR)/psg.o         \
-		$(OBJDIR)/opll.o         \
-		$(OBJDIR)/ym2413.o      \
-		$(OBJDIR)/ym3438.o      \
-		$(OBJDIR)/ym2612.o    
-
-OBJECTS	+=	$(OBJDIR)/blip_buf.o 
-
-OBJECTS	+=	$(OBJDIR)/eq.o 
-
-OBJECTS	+=      $(OBJDIR)/sram.o        \
-		$(OBJDIR)/svp.o	        \
-		$(OBJDIR)/ssp16.o       \
-		$(OBJDIR)/ggenie.o      \
-		$(OBJDIR)/areplay.o	\
-		$(OBJDIR)/eeprom_93c.o  \
-		$(OBJDIR)/eeprom_i2c.o  \
-		$(OBJDIR)/eeprom_spi.o  \
-		$(OBJDIR)/md_cart.o	\
-		$(OBJDIR)/sms_cart.o	
-		
-OBJECTS	+=      $(OBJDIR)/scd.o	\
-		$(OBJDIR)/cdd.o	\
-		$(OBJDIR)/cdc.o	\
-		$(OBJDIR)/gfx.o	\
-		$(OBJDIR)/pcm.o	\
-		$(OBJDIR)/cd_cart.o
-
-OBJECTS	+=	$(OBJDIR)/sms_ntsc.o	\
-		$(OBJDIR)/md_ntsc.o
-
-OBJECTS	+=	$(OBJDIR)/main.o	\
-		$(OBJDIR)/config.o	\
-		$(OBJDIR)/error.o	\
-		$(OBJDIR)/ioapi.o       \
-		$(OBJDIR)/unzip.o       \
-		$(OBJDIR)/fileio.o	\
-		$(OBJDIR)/gamehacks.o \
-		$(OBJDIR)/input_sdl2.o \
-		$(OBJDIR)/sound_sdl2mixer.o \
-		$(OBJDIR)/video_sdl2.o
 
 OUTDIR = $(BINDIR)/$(PLATFORM)
 FULLNAME = $(OUTDIR)/$(NAME).$(SUFFIX)
 OBJDIR = objects/$(PLATFORM)
+
+OBJECTS += $(addprefix $(OBJDIR)/, $(addsuffix .o, $(SOURCES)))
 
 ifeq ($(SWITCH), 1)
 
@@ -195,77 +228,34 @@ $(FULLNAME): $(OUTDIR)/$(NAME)
 	@elf2nro $< $@ $(NROFLAGS)
 
 $(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo -n Linking...
+	@$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo " Done!"
 
 else
+
 $(FULLNAME): $(OBJDIR) $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo -n Linking...
+	@$(CC) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo " Done!"
+
 endif
 
 $(shell mkdir -p $(OUTDIR))
 $(shell mkdir -p $(OBJDIR))
+
 all: $(FULLNAME)
 
-$(OBJDIR) :
-		@[ -d $@ ] || mkdir -p $@
-		
-$(OBJDIR)/%.o : $(SRCDIR)/core/%.c $(SRCDIR)/core/%.h
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-	        	        
-$(OBJDIR)/%.o :	$(SRCDIR)/core/sound/%.c $(SRCDIR)/core/sound/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+$(OBJDIR)/%.o: src/%.c
+	@mkdir -p $(@D)
+	@echo -n Compiling $<...
+	@$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+	@echo " Done!"
 
-$(OBJDIR)/%.o :	$(SRCDIR)/core/input_hw/%.c $(SRCDIR)/core/input_hw/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/cart_hw/%.c $(SRCDIR)/core/cart_hw/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/cart_hw/svp/%.c      
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/cart_hw/svp/%.c $(SRCDIR)/core/cart_hw/svp/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/cd_hw/%.c $(SRCDIR)/core/cd_hw/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/z80/%.c $(SRCDIR)/core/z80/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/m68k/%.c       
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/core/ntsc/%.c $(SRCDIR)/core/ntsc/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(CHDLIBDIR)/deps/lzma/%.c 	        
-		$(CC) -c $(FLAGS) -I$(CHDLIBDIR)/deps/lzma -D_7ZIP_ST $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/%.c $(SRCDIR)/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/backends/video/%.c    
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/backends/sound/%.c  
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/backends/input/%.c  
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-
-$(OBJDIR)/%.o :	$(SRCDIR)/sdl2/%.c $(SRCDIR)/sdl2/%.h	        
-		$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
-		
-
-ifeq ($(PLATFORM),Windows)
-$(OBJDIR)/icon.o :	
-		windres $(SRCDIR)/icon.rc $@
-endif
-
-pack:
-		strip $(NAME)
-		upx -9 $(NAME)	        
+#Compile the Windows icon file into an object
+$(OBJDIR)/icon.o: src/icon.rc src/md.ico
+	@mkdir -p $(@D)
+	@windres $< $@
 
 clean:
 	rm -rf $(OBJDIR)

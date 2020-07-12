@@ -12,4 +12,10 @@ int Backend_Sound_Init();
 int Backend_Sound_Update(int size);
 int Backend_Sound_Pause();
 
+int Backend_Sound_PlayMusic(char *path);
+int Backend_Sound_StopMusic();
+int Backend_Sound_FadeOutMusic(int fadeTime);
+int Backend_Sound_PauseMusic();
+int Backend_Sound_ResumeMusic();
+
 #endif
