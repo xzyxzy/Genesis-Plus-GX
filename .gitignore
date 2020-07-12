@@ -4,3 +4,4 @@ bin/
 *.o
 *.a
 *.srm
+rom.bin

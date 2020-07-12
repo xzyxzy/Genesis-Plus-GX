@@ -32,6 +32,8 @@ SUFFIX	  =
 CC        = gcc
 PKGCONFIG = pkg-config
 
+STATIC	  = 1
+
 BACKEND_VIDEO ?= sdl2
 BACKEND_INPUT ?= sdl2
 BACKEND_AUDIO ?= sdl2mixer
@@ -61,7 +63,7 @@ ifeq ($(PLATFORM),Emscripten)
 	PKGCONFIG = :
 	CFLAGS += -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
 	DEFINES += -DHAVE_ALLOCA_H
-	SUFFIX = js
+	SUFFIX = .html
 endif
 
 ifeq ($(PLATFORM),Switch)
@@ -76,7 +78,7 @@ ifeq ($(PLATFORM),Switch)
 		CFLAGS += -DENABLE_NXLINK
 	endif
 
-	SUFFIX = nro
+	SUFFIX = .nro
 
 	DEFINES += -DHAVE_ALLOCA_H
 endif
@@ -84,7 +86,17 @@ endif
 ifeq ($(PLATFORM),Windows)
 	LIBS += -lshlwapi -mconsole
 	OBJECTS	+=	$(OBJDIR)/icon.o
-	SUFFIX = exe
+	SUFFIX = .exe
+endif
+
+ifeq ($(PLATFORM),Unknown)
+	# Linux + static binaries = no
+	STATIC = 0
+	LIBS += -lm
+endif
+
+ifeq ($(STATIC),1)
+	PKGCONFIG += " --static"
 endif
 
 # =============================================================================
@@ -92,20 +104,20 @@ endif
 # =============================================================================
 
 ifeq ($(BACKEND_VIDEO),sdl2)
-	CFLAGS += `$(PKGCONFIG) --static --cflags sdl2`
-	LIBS += `$(PKGCONFIG) --static --libs sdl2`
+	CFLAGS += `$(PKGCONFIG) --cflags sdl2`
+	LIBS += `$(PKGCONFIG) --libs sdl2`
 	SOURCES +=	backends/video/video_sdl2
 endif
 
 ifeq ($(BACKEND_INPUT),sdl2)
-	CFLAGS += `$(PKGCONFIG) --static --cflags sdl2`
-	LIBS += `$(PKGCONFIG) --static --libs sdl2`
+	CFLAGS += `$(PKGCONFIG) --cflags sdl2`
+	LIBS += `$(PKGCONFIG) --libs sdl2`
 	SOURCES +=	backends/input/input_sdl2
 endif
 
 ifeq ($(BACKEND_AUDIO),sdl2mixer)
-	CFLAGS += `$(PKGCONFIG) --static --cflags SDL2_mixer opusfile libmpg123 flac`
-	LIBS += `$(PKGCONFIG) --static --libs SDL2_mixer opusfile libmpg123 flac`
+	CFLAGS += `$(PKGCONFIG) --cflags SDL2_mixer opusfile libmpg123 flac`
+	LIBS += `$(PKGCONFIG) --libs SDL2_mixer opusfile libmpg123 flac`
 	SOURCES +=	backends/sound/sound_sdl2mixer
 endif
 
@@ -127,10 +139,15 @@ endif
 
 # =============================================================================
 
-CFLAGS += `$(PKGCONFIG) --static --cflags zlib vorbisfile`
-LIBS   += `$(PKGCONFIG) --static --libs zlib vorbisfile`
+CFLAGS += `$(PKGCONFIG) --cflags zlib vorbisfile`
+LIBS   += `$(PKGCONFIG) --libs zlib vorbisfile`
 
-CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings -static
+CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
+
+ifeq ($(STATIC),1)
+	CFLAGS += -static
+endif
+
 LDFLAGS   = $(CFLAGS)
 
 DEFINES   = -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS \
@@ -216,7 +233,7 @@ SOURCES	+=	main \
 
 
 OUTDIR = $(BINDIR)/$(PLATFORM)
-FULLNAME = $(OUTDIR)/$(NAME).$(SUFFIX)
+FULLNAME = $(OUTDIR)/$(NAME)$(SUFFIX)
 OBJDIR = objects/$(PLATFORM)
 
 OBJECTS += $(addprefix $(OBJDIR)/, $(addsuffix .o, $(SOURCES)))
