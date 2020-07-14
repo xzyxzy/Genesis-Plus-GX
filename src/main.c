@@ -291,7 +291,7 @@ int main (int argc, char **argv) {
   /* reset system hardware */
   system_reset();
 
-  if (use_sound) Backend_Sound_Pause();
+  //if (use_sound) Backend_Sound_Pause();
 
   long double framerateMilliseconds = 1000.0 / 60.0;
 

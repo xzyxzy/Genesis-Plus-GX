@@ -138,3 +138,11 @@ int Backend_Sound_Update(int size) {
   SDL_UnlockAudio();
   return 1;
 }
+
+int Backend_Sound_MusicSpeed(float speed) {
+  return 1;
+}
+
+int Backend_Sound_MusicSetUnderwater(bool isUnderwater) {
+  return 1;
+}
