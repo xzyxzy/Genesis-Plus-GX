@@ -11,18 +11,18 @@
 
 using namespace SoLoud;
 
-#define CHUNK_BUFFER_SIZE 8
+#define CHUNK_BUFFER_SIZE 16
 
-Soloud soloud; // object created
+Soloud soloud;
 
-WavStream music;      // One wave file
+WavStream music;
 int music_handle;
 Bus filter_bus;
 float music_speed = 1.0;
 
 int whichchunk = 0;
-Wav chunks[CHUNK_BUFFER_SIZE];
-Queue chunkqueue;
+Wav chunks[CHUNK_BUFFER_SIZE][2];
+Queue chunkqueue_l, chunkqueue_r;
 
 BiquadResonantFilter underwaterFilter;
 
@@ -43,9 +43,10 @@ int Backend_Sound_Init() {
         2
     );
 
-    chunkqueue.setParams(SOUND_FREQUENCY * 2, 1);
+    chunkqueue_l.setParams(SOUND_FREQUENCY, 1);
+    chunkqueue_r.setParams(SOUND_FREQUENCY, 1);
     soloud.play(filter_bus);
-    underwaterFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 1000, 2);
+    underwaterFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 1000, 0);
 
     return 1;
 }
@@ -53,25 +54,53 @@ int Backend_Sound_Init() {
 // 0 = filling, 1 = full, 2 = playback started
 int bufferstate = 0;
 
+short soundframe_l[SOUND_SAMPLES_SIZE / 2];
+short soundframe_r[SOUND_SAMPLES_SIZE / 2];
+
 int Backend_Sound_Update(int size) {
-    chunks[whichchunk].loadRawWave16(
-        soundframe,
-        size,
+    // So SoLoud is having really weird problems with loadRawWave16
+    // and multiple channels so lets just separate them manually
+    // and pan them
+
+    for (int i = 0; i < size / 2; i++) {
+        soundframe_l[i] = soundframe[i*2];
+        soundframe_r[i] = soundframe[(i*2)+1];
+    }
+
+    // Left
+    chunks[whichchunk][0].loadRawWave16(
+        soundframe_l,
+        size / 2,
         SOUND_FREQUENCY,
         1
     );
 
+    // Right
+    chunks[whichchunk][1].loadRawWave16(
+        soundframe_r,
+        size / 2,
+        SOUND_FREQUENCY,
+        1
+    );
+
+    // int whichchunk_play = (whichchunk + (CHUNK_BUFFER_SIZE - 1)) % CHUNK_BUFFER_SIZE;
+    int whichchunk_play = whichchunk;
+    
     whichchunk++;
     bufferstate |= whichchunk == CHUNK_BUFFER_SIZE - 1;
     whichchunk %= CHUNK_BUFFER_SIZE;
 
-    chunkqueue.play(chunks[(whichchunk + (CHUNK_BUFFER_SIZE - 1)) % CHUNK_BUFFER_SIZE]);
+
+    chunkqueue_l.play(chunks[whichchunk_play][0]);
+    chunkqueue_r.play(chunks[whichchunk_play][1]);
  
     if (!bufferstate) return 1;    
     if (bufferstate == 2) return 1;
-    soloud.play(chunkqueue);
+    
+    soloud.play(chunkqueue_l,1,1);
+    soloud.play(chunkqueue_r,1,-1);
+    
     bufferstate = 2;
-
     return 1;
 }
 
@@ -83,7 +112,7 @@ int Backend_Sound_PlayMusic(char *path) {
         return 0;
     }
 
-    music_handle = filter_bus.play(music, 0.75);
+    music_handle = filter_bus.play(music, 1);
     soloud.setRelativePlaySpeed(music_handle, music_speed);
     return 1;
 }
