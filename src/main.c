@@ -122,7 +122,7 @@ void mainloop() {
 
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
-    if (overclock_enable && overclock_delay && --overclock_delay == 0)
+    if (gamehacks_overclock_enable && overclock_enable && overclock_delay && --overclock_delay == 0)
         update_overclock();
   #endif
 

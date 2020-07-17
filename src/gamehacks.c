@@ -15,11 +15,13 @@
 #define Current_Zone 0xFADA-1
 #define Current_Act 0xFADB-1
 
-#define dPlaySnd 0x12AC4A
+#define dPlaySnd 0x123C4A
 
 #define id_music_start  0x0B
 #define id_music_end    0x2A
 #define id_music_life   0x25
+
+int gamehacks_overclock_enable = 1;
 
 int gamehacks_play_sfx(int id) {
     if (id == 0) return 0;

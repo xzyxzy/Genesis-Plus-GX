@@ -131,6 +131,7 @@ int Backend_Sound_PlaySFX(char *path) {
         }
         sfx_cache.insert(it,std::pair<std::string,Wav*>(pathstr,sfx));
     }
+    soloud.stopAudioSource(*sfx);
     filter_bus.play(*sfx);
     return 1;
 }

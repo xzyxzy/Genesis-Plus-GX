@@ -91,8 +91,7 @@ endif
 
 ifeq ($(PLATFORM),Unknown)
 	# Linux + static binaries = no
-	STATIC = 0
-	LIBS += -lm
+	LIBS += -lm -ldl -lpthread -lasound
 endif
 
 ifeq ($(STATIC),1)
