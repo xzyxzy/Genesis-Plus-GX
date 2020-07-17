@@ -125,15 +125,15 @@ endif
 # =============================================================================
 
 ifeq ($(BACKEND_VIDEO),null)
-	SOURCES +=	backends/video/video_null
+	SOURCES +=	src/backends/video/video_null
 endif
 
 ifeq ($(BACKEND_INPUT),null)
-	SOURCES +=	backends/input/input_null
+	SOURCES +=	src/backends/input/input_null
 endif
 
 ifeq ($(BACKEND_AUDIO),null)
-	SOURCES +=	backends/sound/sound_null
+	SOURCES +=	src/backends/sound/sound_null
 endif
 
 # =============================================================================
