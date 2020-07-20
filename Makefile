@@ -91,7 +91,36 @@ ifeq ($(PLATFORM),Switch)
 	endif
 
 	SUFFIX = .nro
+	DEFINES += -DHAVE_ALLOCA_H
+endif
 
+ifeq ($(PLATFORM),3DS)
+	include $(DEVKITARM)/3ds_rules
+	INCLUDES += -I$(CTRULIB)/include
+
+	CFLAGS += -g -Wall -O2 -mword-relocations \
+			-ffunction-sections \
+			-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft \
+			-fno-rtti -fno-exceptions -std=gnu++11
+	DEFINES += -DARM11 -D_3DS
+	LIBS	+= -L$(CTRULIB)/lib -lSDL_gfx -lSDL_mixer -lSDL_image -lSDL -lmikmod -lmad -lvorbisidec -logg -lpng -ljpeg -lz -lcitro3d -lctru -lm
+	#PKGCONFIG = $(DEVKITPRO)/portlibs/3ds/bin/arm-none-eabi-pkg-config
+	PKGCONFIG = :
+	CFLAGS +=	-D_GNU_SOURCE=1 -ffunction-sections -fdata-sections -march=armv6k \
+				-mtune=mpcore -mfloat-abi=hard -mword-relocations -DARM11 -D_3DS \
+				-IC:/msys64/opt/devkitpro/portlibs/3ds/include/SDL \
+				-I/opt/devkitpro/libctru/include \
+				-IC:/msys64/opt/devkitpro/portlibs/3ds/include \
+				-LC:/msys64/opt/devkitpro/portlibs/3ds/lib \
+				-L/opt/devkitpro/portlibs/3ds \
+				-L/opt/devkitpro/libctru/lib \
+				-L/opt/devkitpro/portlibs/3ds \
+				-L/opt/devkitpro/libctru/lib \
+				-LC:/msys64/opt/devkitpro/portlibs/3ds/lib \
+				-specs=3dsx.specs -march=armv6k -mfloat-abi=hard \
+				-march=armv6k -mfloat-abi=hard \
+
+	SUFFIX = .3dsx
 	DEFINES += -DHAVE_ALLOCA_H
 endif
 
@@ -118,6 +147,16 @@ endif
 ifeq ($(DEBUG),1)
 	CFLAGS += -g
 	DEFINES += -DDEBUG
+endif
+
+# =============================================================================
+# SDL Backend
+# =============================================================================
+
+ifeq ($(BACKEND_VIDEO),sdl)
+	CFLAGS += `$(PKGCONFIG) --cflags sdl`
+	LIBS += `$(PKGCONFIG) --libs sdl`
+	SOURCES +=	src/backends/video/video_sdl
 endif
 
 # =============================================================================
@@ -246,8 +285,8 @@ endif
 
 # =============================================================================
 
-CFLAGS += `$(PKGCONFIG) --cflags zlib vorbisfile`
-LIBS   += `$(PKGCONFIG) --libs zlib vorbisfile`
+CFLAGS += `$(PKGCONFIG) --cflags zlib`
+LIBS   += `$(PKGCONFIG) --libs zlib`
 
 CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
 
@@ -257,7 +296,7 @@ endif
 
 LDFLAGS   = $(CFLAGS)
 
-DEFINES   += -DLSB_FIRST -DUSE_16BPP_RENDERING -DUSE_LIBVORBIS \
+DEFINES   += -DLSB_FIRST -DUSE_16BPP_RENDERING \
 			-DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT \
 			-DM68K_OVERCLOCK_SHIFT=20 -DHOOK_CPU
 
@@ -347,11 +386,23 @@ OBJDIR = objects/$(PLATFORM)
 
 OBJECTS += $(addprefix $(OBJDIR)/, $(addsuffix .o, $(SOURCES)))
 
-ifeq ($(SWITCH), 1)
+ifeq ($(PLATFORM), Switch)
 
 $(FULLNAME): $(OUTDIR)/$(NAME)
 	@echo "Building nro..."
 	@elf2nro $< $@ $(NROFLAGS)
+
+$(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
+	@echo -n Linking...
+	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo " Done!"
+
+else ifeq ($(PLATFORM), 3DS)
+
+$(FULLNAME): $(OUTDIR)/$(NAME)
+	@echo -n "Building 3dsx..."
+	@3dsxtool $< $@
+	@echo " Done!"
 
 $(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
