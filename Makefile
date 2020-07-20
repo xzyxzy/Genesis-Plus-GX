@@ -159,6 +159,18 @@ ifeq ($(BACKEND_VIDEO),sdl)
 	SOURCES +=	src/backends/video/video_sdl
 endif
 
+ifeq ($(BACKEND_INPUT),sdl)
+	CFLAGS += `$(PKGCONFIG) --cflags sdl`
+	LIBS += `$(PKGCONFIG) --libs sdl`
+	SOURCES +=	src/backends/input/input_sdl
+endif
+
+ifeq ($(BACKEND_AUDIO),sdlmixer)
+	CFLAGS += `$(PKGCONFIG) --cflags SDL_mixer opusfile libmpg123 flac mad`
+	LIBS += `$(PKGCONFIG) --libs SDL_mixer opusfile libmpg123 flac mad`
+	SOURCES +=	src/backends/sound/sound_sdlmixer
+endif
+
 # =============================================================================
 # SDL2 Backend
 # =============================================================================
