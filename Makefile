@@ -31,6 +31,7 @@ BINDIR	  = bin
 SUFFIX	  = 
 CC        = gcc
 PKGCONFIG = pkg-config
+DEBUG	 ?= 0
 
 STATIC	  = 1
 
@@ -44,6 +45,17 @@ BACKEND_AUDIO ?= soloud_sdl2
 
 ifeq ($(OS),Windows_NT)
 	PLATFORM ?= Windows
+else
+	UNAME_S := $(shell uname -s)
+
+	ifeq ($(UNAME_S),Linux)
+		PLATFORM = Linux
+	endif
+
+	ifeq ($(UNAME_S),Darwin)
+		PLATFORM = macOS
+	endif
+
 endif
 
 ifdef EMSCRIPTEN
@@ -89,13 +101,23 @@ ifeq ($(PLATFORM),Windows)
 	SUFFIX = .exe
 endif
 
-ifeq ($(PLATFORM),Unknown)
-	# Linux + static binaries = no
+ifeq ($(PLATFORM),Linux)
 	LIBS += -lm -ldl -lpthread -lasound
+endif
+
+ifeq ($(PLATFORM),macOS)
+	STATIC = 0
+	LIBS += -lm -ldl -lpthread
+	DEFINES = -DMACOS
 endif
 
 ifeq ($(STATIC),1)
 	PKGCONFIG +=  --static
+endif
+
+ifeq ($(DEBUG),1)
+	CFLAGS += -g
+	DEFINES += -DDEBUG
 endif
 
 # =============================================================================
@@ -208,11 +230,16 @@ ifeq ($(BACKEND_AUDIO),soloud_sdl2)
 				#lib/soloud/src/tools/resamplerlab/main \
 				#lib/soloud/src/tools/sanity/sanity
 	
+	ifeq ($(PLATFORM),macOS)
+		INCLUDES += -I./compat/macOS
+	endif
+
 	ifeq ($(STATIC),1)
 		SOURCES += lib/soloud/src/backend/sdl2_static/soloud_sdl2_static
 		DEFINES += -DWITH_SDL2_STATIC
 	else
-		SOURCES += lib/soloud/src/backend/sdl/soloud_sdl2
+		SOURCES +=	lib/soloud/src/backend/sdl/soloud_sdl2 \
+					lib/soloud/src/backend/sdl/soloud_sdl2_dll
 		DEFINES += -DWITH_SDL2
 	endif
 endif
@@ -335,7 +362,7 @@ else
 
 $(FULLNAME): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
-	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 	@echo " Done!"
 
 endif

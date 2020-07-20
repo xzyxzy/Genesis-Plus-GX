@@ -5,3 +5,4 @@ bin/
 *.a
 *.srm
 rom.bin
+.DS_Store

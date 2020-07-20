@@ -1,4 +1,5 @@
 #include <sys/time.h>
+#include <limits.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>

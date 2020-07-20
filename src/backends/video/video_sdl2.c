@@ -81,7 +81,7 @@ int Backend_Video_Update() {
   {
     sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
 
-    #ifdef SWITCH
+    #if defined(SWITCH) || defined(MACOS)
     sdl_video.screen_width = 1280;
     sdl_video.screen_height = 720;
     #else
