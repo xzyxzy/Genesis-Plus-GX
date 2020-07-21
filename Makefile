@@ -26,18 +26,13 @@
 # -DHAVE_YM3438_CORE : enable (configurable) support for Nuked cycle-accurate YM3438 core
 # -DHOOK_CPU         : enable CPU hooks
 
+.DEFAULT_GOAL := all
+
 NAME	  = gen
-BINDIR	  = bin
 SUFFIX	  = 
-CC        = gcc
 PKGCONFIG = pkg-config
 DEBUG	 ?= 0
-
-STATIC	  = 1
-
-BACKEND_VIDEO ?= sdl2
-BACKEND_INPUT ?= sdl2
-BACKEND_AUDIO ?= soloud_sdl2
+STATIC	 ?= 1
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -49,11 +44,11 @@ else
 	UNAME_S := $(shell uname -s)
 
 	ifeq ($(UNAME_S),Linux)
-		PLATFORM = Linux
+		PLATFORM ?= Linux
 	endif
 
 	ifeq ($(UNAME_S),Darwin)
-		PLATFORM = macOS
+		PLATFORM ?= macOS
 	endif
 
 endif
@@ -65,80 +60,13 @@ endif
 PLATFORM ?= Unknown
 
 # =============================================================================
-# Detect explicitly-defined platforms
+
+OUTDIR = bin/$(PLATFORM)
+OBJDIR = objects/$(PLATFORM)
+
+include Makefile_cfgs/Platforms/$(PLATFORM).cfg
+
 # =============================================================================
-
-
-ifeq ($(PLATFORM),Emscripten)
-	PKGCONFIG = :
-	CFLAGS += -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_ZLIB=1 -s USE_VORBIS=1 -s TOTAL_MEMORY=41484288 -s LLD_REPORT_UNDEFINED -s ALLOW_MEMORY_GROWTH=1 --preload-file "rom.bin"
-	DEFINES += -DHAVE_ALLOCA_H
-	SUFFIX = .html
-
-	CC = $(CXX)
-endif
-
-ifeq ($(PLATFORM),Switch)
-	include $(DEVKITPRO)/libnx/switch_rules
-	INCLUDES += -I$(LIBNX)/include -I$(PORTLIBS)/include/SDL2 -I$(PORTLIBS)/include
-
-	CFLAGS += -DARM -march=armv8-a -mtune=cortex-a57 -mtp=soft -DLSB_FIRST -DBYTE_ORDER=LITTLE_ENDIAN -DALIGN_LONG -DALIGN_WORD -DM68K_OVERCLOCK_SHIFT=20 -DHAVE_ZLIB -DSWITCH -fPIE -Wl,--allow-multiple-definition -specs=$(DEVKITPRO)/libnx/switch.specs
-	LIBS += -L$(LIBNX)/lib -lnx -lm
-	PKGCONFIG = $(DEVKITPRO)/portlibs/switch/bin/aarch64-none-elf-pkg-config
-
-	ifdef NXLINK
-		CFLAGS += -DENABLE_NXLINK
-	endif
-
-	SUFFIX = .nro
-	DEFINES += -DHAVE_ALLOCA_H
-endif
-
-ifeq ($(PLATFORM),3DS)
-	include $(DEVKITARM)/3ds_rules
-	INCLUDES += -I$(CTRULIB)/include
-
-	CFLAGS += -g -Wall -O2 -mword-relocations \
-			-ffunction-sections \
-			-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft \
-			-fno-rtti -fno-exceptions -std=gnu++11
-	DEFINES += -DARM11 -D_3DS
-	LIBS	+= -L$(CTRULIB)/lib -lSDL_gfx -lSDL_mixer -lSDL_image -lSDL -lmikmod -lmad -lvorbisidec -logg -lpng -ljpeg -lz -lcitro3d -lctru -lm
-	#PKGCONFIG = $(DEVKITPRO)/portlibs/3ds/bin/arm-none-eabi-pkg-config
-	PKGCONFIG = :
-	CFLAGS +=	-D_GNU_SOURCE=1 -ffunction-sections -fdata-sections -march=armv6k \
-				-mtune=mpcore -mfloat-abi=hard -mword-relocations -DARM11 -D_3DS \
-				-IC:/msys64/opt/devkitpro/portlibs/3ds/include/SDL \
-				-I/opt/devkitpro/libctru/include \
-				-IC:/msys64/opt/devkitpro/portlibs/3ds/include \
-				-LC:/msys64/opt/devkitpro/portlibs/3ds/lib \
-				-L/opt/devkitpro/portlibs/3ds \
-				-L/opt/devkitpro/libctru/lib \
-				-L/opt/devkitpro/portlibs/3ds \
-				-L/opt/devkitpro/libctru/lib \
-				-LC:/msys64/opt/devkitpro/portlibs/3ds/lib \
-				-specs=3dsx.specs -march=armv6k -mfloat-abi=hard \
-				-march=armv6k -mfloat-abi=hard \
-
-	SUFFIX = .3dsx
-	DEFINES += -DHAVE_ALLOCA_H
-endif
-
-ifeq ($(PLATFORM),Windows)
-	LIBS += -lshlwapi -mconsole
-	OBJECTS	+=	$(OBJDIR)/icon.o
-	SUFFIX = .exe
-endif
-
-ifeq ($(PLATFORM),Linux)
-	LIBS += -lm -ldl -lpthread -lasound
-endif
-
-ifeq ($(PLATFORM),macOS)
-	STATIC = 0
-	LIBS += -lm -ldl -lpthread
-	DEFINES = -DMACOS
-endif
 
 ifeq ($(STATIC),1)
 	PKGCONFIG +=  --static
@@ -150,150 +78,16 @@ ifeq ($(DEBUG),1)
 endif
 
 # =============================================================================
-# SDL Backend
+# Backends
 # =============================================================================
 
-ifeq ($(BACKEND_VIDEO),sdl)
-	CFLAGS += `$(PKGCONFIG) --cflags sdl`
-	LIBS += `$(PKGCONFIG) --libs sdl`
-	SOURCES +=	src/backends/video/video_sdl
-endif
+BACKEND_VIDEO ?= sdl2
+BACKEND_INPUT ?= sdl2
+BACKEND_AUDIO ?= soloud_sdl2
 
-ifeq ($(BACKEND_INPUT),sdl)
-	CFLAGS += `$(PKGCONFIG) --cflags sdl`
-	LIBS += `$(PKGCONFIG) --libs sdl`
-	SOURCES +=	src/backends/input/input_sdl
-endif
-
-ifeq ($(BACKEND_AUDIO),sdlmixer)
-	CFLAGS += `$(PKGCONFIG) --cflags SDL_mixer opusfile libmpg123 flac mad`
-	LIBS += `$(PKGCONFIG) --libs SDL_mixer opusfile libmpg123 flac mad`
-	SOURCES +=	src/backends/sound/sound_sdlmixer
-endif
-
-# =============================================================================
-# SDL2 Backend
-# =============================================================================
-
-ifeq ($(BACKEND_VIDEO),sdl2)
-	CFLAGS += `$(PKGCONFIG) --cflags sdl2`
-	LIBS += `$(PKGCONFIG) --libs sdl2`
-	SOURCES +=	src/backends/video/video_sdl2
-endif
-
-ifeq ($(BACKEND_INPUT),sdl2)
-	CFLAGS += `$(PKGCONFIG) --cflags sdl2`
-	LIBS += `$(PKGCONFIG) --libs sdl2`
-	SOURCES +=	src/backends/input/input_sdl2
-endif
-
-ifeq ($(BACKEND_AUDIO),sdl2mixer)
-	CFLAGS += `$(PKGCONFIG) --cflags SDL2_mixer opusfile libmpg123 flac`
-	LIBS += `$(PKGCONFIG) --libs SDL2_mixer opusfile libmpg123 flac`
-	SOURCES +=	src/backends/sound/sound_sdl2mixer
-endif
-
-# =============================================================================
-# Null Backend
-# =============================================================================
-
-ifeq ($(BACKEND_VIDEO),null)
-	SOURCES +=	src/backends/video/video_null
-endif
-
-ifeq ($(BACKEND_INPUT),null)
-	SOURCES +=	src/backends/input/input_null
-endif
-
-ifeq ($(BACKEND_AUDIO),null)
-	SOURCES +=	src/backends/sound/sound_null
-endif
-
-# =============================================================================
-# SoLoud/SDL2 Backend
-# =============================================================================
-
-ifeq ($(BACKEND_AUDIO),soloud_sdl2)
-	CFLAGS += `$(PKGCONFIG) --cflags opusfile libmpg123 flac vorbis`
-	LIBS += `$(PKGCONFIG) --libs opusfile libmpg123 flac vorbis`
-
-	INCLUDES +=	-I./lib/soloud/src/audiosource/wav \
-				-I./lib/soloud/include
-
-	SOURCES +=	src/backends/sound/sound_soloud \
-				lib/soloud/src/audiosource/ay/chipplayer \
-				lib/soloud/src/audiosource/ay/sndbuffer \
-				lib/soloud/src/audiosource/ay/sndchip \
-				lib/soloud/src/audiosource/ay/sndrender \
-				lib/soloud/src/audiosource/ay/soloud_ay \
-				lib/soloud/src/audiosource/monotone/soloud_monotone \
-				lib/soloud/src/audiosource/noise/soloud_noise \
-				lib/soloud/src/audiosource/openmpt/soloud_openmpt_dll \
-				lib/soloud/src/audiosource/openmpt/soloud_openmpt \
-				lib/soloud/src/audiosource/sfxr/soloud_sfxr \
-				lib/soloud/src/audiosource/speech/darray \
-				lib/soloud/src/audiosource/speech/klatt \
-				lib/soloud/src/audiosource/speech/resonator \
-				lib/soloud/src/audiosource/speech/soloud_speech \
-				lib/soloud/src/audiosource/speech/tts \
-				lib/soloud/src/audiosource/tedsid/sid \
-				lib/soloud/src/audiosource/tedsid/soloud_tedsid \
-				lib/soloud/src/audiosource/tedsid/ted \
-				lib/soloud/src/audiosource/vic/soloud_vic \
-				lib/soloud/src/audiosource/vizsn/soloud_vizsn \
-				lib/soloud/src/audiosource/wav/dr_impl \
-				lib/soloud/src/audiosource/wav/soloud_wav \
-				lib/soloud/src/audiosource/wav/soloud_wavstream \
-				lib/soloud/src/audiosource/wav/stb_vorbis \
-				lib/soloud/src/core/soloud \
-				lib/soloud/src/core/soloud_audiosource \
-				lib/soloud/src/core/soloud_bus \
-				lib/soloud/src/core/soloud_core_3d \
-				lib/soloud/src/core/soloud_core_basicops \
-				lib/soloud/src/core/soloud_core_faderops \
-				lib/soloud/src/core/soloud_core_filterops \
-				lib/soloud/src/core/soloud_core_getters \
-				lib/soloud/src/core/soloud_core_setters \
-				lib/soloud/src/core/soloud_core_voicegroup \
-				lib/soloud/src/core/soloud_core_voiceops \
-				lib/soloud/src/core/soloud_fader \
-				lib/soloud/src/core/soloud_fft \
-				lib/soloud/src/core/soloud_fft_lut \
-				lib/soloud/src/core/soloud_file \
-				lib/soloud/src/core/soloud_filter \
-				lib/soloud/src/core/soloud_misc \
-				lib/soloud/src/core/soloud_queue \
-				lib/soloud/src/core/soloud_thread \
-				lib/soloud/src/c_api/soloud_c \
-				lib/soloud/src/filter/soloud_bassboostfilter \
-				lib/soloud/src/filter/soloud_biquadresonantfilter \
-				lib/soloud/src/filter/soloud_dcremovalfilter \
-				lib/soloud/src/filter/soloud_echofilter \
-				lib/soloud/src/filter/soloud_eqfilter \
-				lib/soloud/src/filter/soloud_fftfilter \
-				lib/soloud/src/filter/soloud_flangerfilter \
-				lib/soloud/src/filter/soloud_freeverbfilter \
-				lib/soloud/src/filter/soloud_lofifilter \
-				lib/soloud/src/filter/soloud_robotizefilter \
-				lib/soloud/src/filter/soloud_waveshaperfilter 
-				#lib/soloud/src/tools/codegen/main \
-				#lib/soloud/src/tools/lutgen/main \
-				#lib/soloud/src/tools/resamplerlab/main \
-				#lib/soloud/src/tools/sanity/sanity
-	
-	ifeq ($(PLATFORM),macOS)
-		INCLUDES += -I./compat/macOS
-	endif
-
-	ifeq ($(STATIC),1)
-		SOURCES += lib/soloud/src/backend/sdl2_static/soloud_sdl2_static
-		DEFINES += -DWITH_SDL2_STATIC
-	else
-		SOURCES +=	lib/soloud/src/backend/sdl/soloud_sdl2 \
-					lib/soloud/src/backend/sdl/soloud_sdl2_dll
-		DEFINES += -DWITH_SDL2
-	endif
-endif
+include Makefile_cfgs/Backends/Video/$(BACKEND_VIDEO).cfg
+include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
+include Makefile_cfgs/Backends/Input/$(BACKEND_INPUT).cfg
 
 # =============================================================================
 
@@ -392,48 +186,15 @@ SOURCES	+=	src/main \
 			src/gamehacks
 
 
-OUTDIR = $(BINDIR)/$(PLATFORM)
-FULLNAME = $(OUTDIR)/$(NAME)$(SUFFIX)
-OBJDIR = objects/$(PLATFORM)
+PKGSUFFIX ?= SUFFIX
+
+BINPATH = $(OUTDIR)/$(NAME)$(SUFFIX)
+PKGPATH = $(OUTDIR)/$(NAME)$(PKGSUFFIX)
 
 OBJECTS += $(addprefix $(OBJDIR)/, $(addsuffix .o, $(SOURCES)))
 
-ifeq ($(PLATFORM), Switch)
-
-$(FULLNAME): $(OUTDIR)/$(NAME)
-	@echo "Building nro..."
-	@elf2nro $< $@ $(NROFLAGS)
-
-$(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
-	@echo -n Linking...
-	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
-	@echo " Done!"
-
-else ifeq ($(PLATFORM), 3DS)
-
-$(FULLNAME): $(OUTDIR)/$(NAME)
-	@echo -n "Building 3dsx..."
-	@3dsxtool $< $@
-	@echo " Done!"
-
-$(OUTDIR)/$(NAME): $(OBJDIR) $(OBJECTS)
-	@echo -n Linking...
-	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
-	@echo " Done!"
-
-else
-
-$(FULLNAME): $(OBJDIR) $(OBJECTS)
-	@echo -n Linking...
-	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
-	@echo " Done!"
-
-endif
-
 $(shell mkdir -p $(OUTDIR))
 $(shell mkdir -p $(OBJDIR))
-
-all: $(FULLNAME)
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
@@ -447,10 +208,16 @@ $(OBJDIR)/%.o: %.cpp
 	@$(CXX) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 	@echo " Done!"
 
-#Compile the Windows icon file into an object
-$(OBJDIR)/icon.o: src/icon.rc src/md.ico
-	@mkdir -p $(@D)
-	@windres $< $@
+$(BINPATH): $(OBJDIR) $(OBJECTS)
+	@echo -n Linking...
+	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	@echo " Done!"
+
+ifneq ($(BINPATH),$(PKGPATH))
+all: $(BINPATH)
+else
+all: $(PKGPATH)
+endif
 
 clean:
 	rm -rf $(OBJDIR)
