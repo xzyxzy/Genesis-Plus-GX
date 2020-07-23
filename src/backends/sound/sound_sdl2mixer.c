@@ -143,6 +143,14 @@ int Backend_Sound_MusicSpeed(float speed) {
   return 1;
 }
 
-int Backend_Sound_MusicSetUnderwater(bool isUnderwater) {
+int Backend_Sound_MusicSetUnderwater(int isUnderwater) {
+  return 1;
+}
+
+int Backend_Sound_PlaySFX(char *path) {
+  return 1;
+}
+
+int Backend_Sound_SetPause(int paused) {
   return 1;
 }

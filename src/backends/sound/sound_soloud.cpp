@@ -83,17 +83,22 @@ int Backend_Sound_Update(int size) {
         1
     );
 
-    // int whichchunk_play = (whichchunk + (CHUNK_BUFFER_SIZE - 1)) % CHUNK_BUFFER_SIZE;
-    int whichchunk_play = whichchunk;
-    
+    // Prevent buffer from wrapping around, if it does it causes the audio to flip out
+    if (
+        chunkqueue_l.isCurrentlyPlaying(chunks[whichchunk][0]) ||
+        chunkqueue_r.isCurrentlyPlaying(chunks[whichchunk][1])
+    ) {
+        chunkqueue_l.stop();
+        chunkqueue_r.stop();
+    }
+
+    chunkqueue_l.play(chunks[whichchunk][0]);
+    chunkqueue_r.play(chunks[whichchunk][1]);
+
     whichchunk++;
     bufferstate |= whichchunk == CHUNK_BUFFER_SIZE - 1;
     whichchunk %= CHUNK_BUFFER_SIZE;
 
-
-    chunkqueue_l.play(chunks[whichchunk_play][0]);
-    chunkqueue_r.play(chunks[whichchunk_play][1]);
- 
     if (!bufferstate) return 1;    
     if (bufferstate == 2) return 1;
     

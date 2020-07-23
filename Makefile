@@ -33,6 +33,7 @@ SUFFIX	  =
 PKGCONFIG = pkg-config
 DEBUG	 ?= 0
 STATIC	 ?= 1
+VERBOSE  ?= 0
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -75,6 +76,11 @@ endif
 ifeq ($(DEBUG),1)
 	CFLAGS += -g
 	DEFINES += -DDEBUG
+endif
+
+ifeq ($(VERBOSE),0)
+	CC := @$(CC)
+	CXX := @$(CXX)
 endif
 
 # =============================================================================
@@ -199,18 +205,18 @@ $(shell mkdir -p $(OBJDIR))
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	@echo -n Compiling $<...
-	@$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+	$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 	@echo " Done!"
 
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(@D)
 	@echo -n Compiling $<...
-	@$(CXX) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+	$(CXX) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
 	@echo " Done!"
 
 $(BINPATH): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
-	@$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 	@echo " Done!"
 
 ifneq ($(BINPATH),$(PKGPATH))
