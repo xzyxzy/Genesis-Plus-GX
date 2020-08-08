@@ -1,5 +1,7 @@
 #include "video_base.h"
 
+#include "shared.h"
+
 int Backend_Video_Close() { return 1; }
 int Backend_Video_Init() { return 1; }
 int Backend_Video_SetFullscreen(int arg_fullscreen) { return 1; }

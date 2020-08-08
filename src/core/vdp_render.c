@@ -589,6 +589,8 @@ static uint8 linebuf[2][0x200];
 /* Sprite limit flag */
 static uint8 spr_ovr;
 
+int render_bg_disable = 0;
+
 /* Sprite parsing lists */
 typedef struct
 {
@@ -2219,6 +2221,11 @@ void render_bg_m5(int line)
 
   /* Scroll Planes common data */
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+
+  if (render_obj == render_obj_m5) {
+    xscroll += 40 + (40 << 16);
+  }
+
   uint32 yscroll      = *(uint32 *)&vsram[0];
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -2376,6 +2383,9 @@ void render_bg_m5_vs(int line)
 
   /* Scroll Planes common data */
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_ste) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = 0;
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -2571,6 +2581,9 @@ void render_bg_m5_im2(int line)
   /* Scroll Planes common data */
   int odd = odd_frame;
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_im2) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = *(uint32 *)&vsram[0];
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -2729,6 +2742,9 @@ void render_bg_m5_im2_vs(int line)
   /* common data */
   int odd = odd_frame;
   uint32 xscroll      = *(uint32 *)&vram[hscb + ((line & hscroll_mask) << 2)];
+  if (render_obj == render_obj_m5_im2_ste) {
+    xscroll += 40 + (40 << 16);
+  }
   uint32 yscroll      = 0;
   uint32 pf_col_mask  = playfield_col_mask;
   uint32 pf_row_mask  = playfield_row_mask;
@@ -3319,7 +3335,7 @@ void render_obj_m5_ste(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80 + 40;
+    xpos = xpos - 0x80 + 72;
 
     /* Sprite size */
     temp = object_info->size;
@@ -4137,7 +4153,12 @@ void render_line(int line)
     }
 
     /* Render BG layer(s) */
-    render_bg(line);
+    
+    if (render_bg_disable) {
+      pixel[0x00] = MAKE_PIXEL(0xF,0x0,0xF);
+      blank_line(line, 0, bitmap.viewport.w);
+    } else render_bg(line);
+    
 
     /* Render sprite layer */
     render_obj(line & 1);

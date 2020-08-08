@@ -126,8 +126,10 @@ void mainloop() {
     if (gamehacks_overclock_enable && overclock_enable && overclock_delay && --overclock_delay == 0)
         update_overclock();
   #endif
-
+  Backend_Video_Clear();
+  gamehacks_render();
   Backend_Video_Update();
+  Backend_Video_Present();
   int sound_update_size = audio_update(soundframe) * 2;
   if (use_sound) Backend_Sound_Update(sound_update_size);
 }

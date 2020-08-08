@@ -1,6 +1,11 @@
 #include "video_base.h"
 
+#include <cstring>
+#include <string>
+#include <map>
+
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include "shared.h"
 
 #if defined(USE_8BPP_RENDERING)
@@ -12,6 +17,8 @@
 #elif defined(USE_32BPP_RENDERING)
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
 #endif
+
+std::map<std::string,SDL_Texture*> tex_cache;
 
 struct {
   SDL_Window* window;
@@ -27,8 +34,6 @@ struct {
   int fullscreen;
 } sdl_video;
 
-
-
 int SDL_OnResize(void* data, SDL_Event* event) {
   if (event->type == SDL_WINDOWEVENT &&
       event->window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -42,6 +47,8 @@ int Backend_Video_Init() {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
     return 0;
   }
+
+  IMG_Init(IMG_INIT_PNG);
 
   uint32 window_flags = (
       (sdl_video.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) |
@@ -64,10 +71,18 @@ int Backend_Video_Init() {
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
   sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
   sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
+  SDL_SetTextureBlendMode(sdl_video.surf_texture, SDL_BLENDMODE_BLEND);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
   SDL_AddEventWatch(SDL_OnResize, sdl_video.window);
+  return 1;
+}
+
+int Backend_Video_Clear() {
+  // TODO: not do this every frame
+  SDL_SetRenderDrawColor(sdl_video.renderer, 0, 0, 0, 255);
+  SDL_RenderClear(sdl_video.renderer);
   return 1;
 }
 
@@ -133,15 +148,25 @@ int Backend_Video_Update() {
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
   }
 
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-  SDL_LockSurface(sdl_video.surf_bitmap);
 
   Uint32 tex_fmt_id;
   SDL_QueryTexture(sdl_video.surf_texture, &tex_fmt_id, NULL, NULL, NULL);
 
   /* Set up a destination surface for the texture update */
   SDL_PixelFormat *dst_fmt = SDL_AllocFormat(tex_fmt_id);
+  SDL_LockSurface(sdl_video.surf_bitmap);
   SDL_Surface *temp = SDL_ConvertSurface(sdl_video.surf_bitmap, dst_fmt, 0);
+  SDL_UnlockSurface(sdl_video.surf_bitmap);
+
+  Uint32 key_color = SDL_MapRGB(
+    temp->format,
+    0xFF, 0x00, 0xFF
+  );
+
+  for (int i = 0; i < temp->w * temp->h; i++) {
+    if (((Uint32*)temp->pixels)[i] != key_color) continue;
+    ((Uint32*)temp->pixels)[i] &= 0x00FFFFFF; 
+  }
 
   SDL_FreeFormat(dst_fmt);
   SDL_UpdateTexture(sdl_video.surf_texture, NULL, temp->pixels, temp->pitch);
@@ -165,12 +190,13 @@ int Backend_Video_Update() {
       &sdl_video.drect
     );
   }
-  SDL_RenderPresent(sdl_video.renderer);
-
-  SDL_UnlockSurface(sdl_video.surf_bitmap);
 
   ++sdl_video.frames_rendered;
+  return 1;
+}
 
+int Backend_Video_Present() {
+  SDL_RenderPresent(sdl_video.renderer);
   return 1;
 }
 
@@ -205,5 +231,25 @@ int Backend_Video_CopyBitmap() {
 
 int Backend_Video_SetWindowTitle(char *caption) {
   SDL_SetWindowTitle(sdl_video.window, caption);
-    return 1;
+  return 1;
+}
+
+void *Backend_Video_LoadImage(char *path) {
+    std::string pathstr = path;
+    SDL_Texture *tex;
+    std::map<std::string,SDL_Texture*>::iterator it = tex_cache.find(pathstr);
+    if(it != tex_cache.end()) {
+        tex = it->second;
+    } else {
+      SDL_Surface* tmp_surface = IMG_Load(path);
+      if (!tmp_surface) return NULL;
+      tex = SDL_CreateTextureFromSurface(sdl_video.renderer, tmp_surface);
+      SDL_FreeSurface(tmp_surface);
+      tex_cache.insert(it,std::pair<std::string,SDL_Texture*>(pathstr,tex));
+    }
+    return (void *)tex;
+}
+
+void *Backend_Video_GetRenderer() {
+  return (void *)sdl_video.renderer;
 }

@@ -1,6 +1,10 @@
 #include "shared.h"
 #include "backends/sound/sound_base.h"
+#include "backends/video/video_base.h"
 #include "cpuhook.h"
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #define mQueue_0 0xEE32 // music
 #define mQueue_1 0xEE32+1 // cmd
@@ -21,6 +25,12 @@
 #define id_music_end    0x2A
 #define id_music_life   0x25
 
+#define Game_Mode 0xF2E0+1
+#define GameModeID_SpecialStage 0x10
+
+#define SSTrack_anim 0xDCAA+1
+#define SS_Cur_Speed_Factor 0xDCB8-1
+
 int gamehacks_overclock_enable = 1;
 
 int gamehacks_play_sfx(int id) {
@@ -28,11 +38,11 @@ int gamehacks_play_sfx(int id) {
 
     char *path = (char *)malloc((100)*sizeof(char));
 
-    if (work_ram[mFlags] & mFlags_Mask_Panning) {
-        sprintf(path, "./gamehacks/sfx/%x_r.wav", id);
-    } else {
-        sprintf(path, "./gamehacks/sfx/%x_l.wav", id);
-    }
+    sprintf(path, "./gamehacks/sfx/%x_%s.wav",
+        id,
+        work_ram[mFlags] & mFlags_Mask_Panning ? "r" : "l"
+    );
+
     if (Backend_Sound_PlaySFX(path)) return 0;
     
     sprintf(path, "./gamehacks/sfx/%x.wav", id);
@@ -106,6 +116,73 @@ void gamehacks_cpuhook(hook_type_t type, int width, unsigned int address, unsign
     }
 }
 
+SDL_Texture *ss_track;
+SDL_Texture *ss_bg;
+SDL_Rect ss_bg_src;
+int ss_track_frame = 0;
+char *ss_track_path;
+
 void gamehacks_init() {
-    set_cpu_hook(&gamehacks_cpuhook);   
+    set_cpu_hook(&gamehacks_cpuhook);
+    ss_track_path = (char *)malloc(80*sizeof(char));
+    ss_bg = (SDL_Texture *)Backend_Video_LoadImage(
+        "./gamehacks/specialstage/bg.png"
+    );
+    ss_bg_src.w = 398;
+    ss_bg_src.h = 224;
+}
+
+void gamehacks_render_ss_track() {
+    sprintf(
+        ss_track_path,
+        "./gamehacks/specialstage/track/%1i/%04i.png",
+        work_ram[SSTrack_anim],
+        ss_track_frame + 1
+    );
+    ss_track = (SDL_Texture *)Backend_Video_LoadImage(ss_track_path);
+    if (ss_track == NULL) {
+        if (ss_track_frame != 0) {
+            ss_track_frame = 0;
+            gamehacks_render_ss_track();
+        }
+        
+        return;
+    }
+    ss_track_frame++;
+
+    SDL_RenderCopy(
+        Backend_Video_GetRenderer(),
+        ss_track,
+        NULL,
+        NULL
+    );
+}
+
+void gamehacks_render_ss_bg() {
+    uint16 bg_xscroll      = (*(uint32 *)&vram[hscb]) >> 16;
+    bg_xscroll %= 256;
+    bg_xscroll = 256 - bg_xscroll;
+    bg_xscroll += 184;
+    ss_bg_src.x = bg_xscroll;
+    uint16 bg_yscroll      = (*(uint32 *)&vsram[0])   >> 16;
+    bg_yscroll  &= 0x0FF;
+    bg_yscroll %= 256;
+    ss_bg_src.y = bg_yscroll;
+
+    SDL_RenderCopy(
+        Backend_Video_GetRenderer(),
+        ss_bg,
+        &ss_bg_src,
+        NULL
+    );
+}
+
+void gamehacks_render() {
+    int in_special_stage = work_ram[Game_Mode] == GameModeID_SpecialStage;
+    // printf("%x\n", *((long *)(work_ram + SS_Cur_Speed_Factor)));
+    render_bg_disable = in_special_stage;
+    if (in_special_stage) {
+        gamehacks_render_ss_bg();
+        gamehacks_render_ss_track();
+    }
 }
