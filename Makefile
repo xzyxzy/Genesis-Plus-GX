@@ -219,7 +219,7 @@ $(BINPATH): $(OBJDIR) $(OBJECTS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 	@echo " Done!"
 
-ifneq ($(BINPATH),$(PKGPATH))
+ifeq ($(BINPATH),$(PKGPATH))
 all: $(BINPATH)
 else
 all: $(PKGPATH)

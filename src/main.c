@@ -1,6 +1,12 @@
 #include <sys/time.h>
 #include <limits.h>
 
+#if defined(__vita__)
+#define PATH_ROM "ux0:rom.bin"
+#else
+#define PATH_ROM "./rom.bin"
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -204,7 +210,7 @@ int main (int argc, char **argv) {
   bitmap.viewport.changed = 3;
 
   char * rom_path = argv[1];
-  if (rom_path == NULL) rom_path = "./rom.bin";
+  if (rom_path == NULL) rom_path = PATH_ROM;
 
   /* Load game file */
   if(!load_rom(rom_path))
@@ -230,66 +236,66 @@ int main (int argc, char **argv) {
   system_init();
 
   /* Mega CD specific */
-  if (system_hw == SYSTEM_MCD)
-  {
-    /* load internal backup RAM */
-    fp = fopen("./scd.brm", "rb");
-    if (fp!=NULL)
-    {
-      fread(scd.bram, 0x2000, 1, fp);
-      fclose(fp);
-    }
+  // if (system_hw == SYSTEM_MCD)
+  // {
+  //   /* load internal backup RAM */
+  //   fp = fopen("./scd.brm", "rb");
+  //   if (fp!=NULL)
+  //   {
+  //     fread(scd.bram, 0x2000, 1, fp);
+  //     fclose(fp);
+  //   }
 
-    /* check if internal backup RAM is formatted */
-    if (memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
-    {
-      /* clear internal backup RAM */
-      memset(scd.bram, 0x00, 0x200);
+  //   /* check if internal backup RAM is formatted */
+  //   if (memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
+  //   {
+  //     /* clear internal backup RAM */
+  //     memset(scd.bram, 0x00, 0x200);
 
-      /* Internal Backup RAM size fields */
-      brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = 0x00;
-      brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (sizeof(scd.bram) / 64) - 3;
+  //     /* Internal Backup RAM size fields */
+  //     brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = 0x00;
+  //     brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (sizeof(scd.bram) / 64) - 3;
 
-      /* format internal backup RAM */
-      memcpy(scd.bram + 0x2000 - 0x40, brm_format, 0x40);
-    }
+  //     /* format internal backup RAM */
+  //     memcpy(scd.bram + 0x2000 - 0x40, brm_format, 0x40);
+  //   }
 
-    /* load cartridge backup RAM */
-    if (scd.cartridge.id)
-    {
-      fp = fopen("./cart.brm", "rb");
-      if (fp!=NULL)
-      {
-        fread(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
-        fclose(fp);
-      }
+  //   /* load cartridge backup RAM */
+  //   if (scd.cartridge.id)
+  //   {
+  //     fp = fopen("./cart.brm", "rb");
+  //     if (fp!=NULL)
+  //     {
+  //       fread(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
+  //       fclose(fp);
+  //     }
 
-      /* check if cartridge backup RAM is formatted */
-      if (memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
-      {
-        /* clear cartridge backup RAM */
-        memset(scd.cartridge.area, 0x00, scd.cartridge.mask + 1);
+  //     /* check if cartridge backup RAM is formatted */
+  //     if (memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
+  //     {
+  //       /* clear cartridge backup RAM */
+  //       memset(scd.cartridge.area, 0x00, scd.cartridge.mask + 1);
 
-        /* Cartridge Backup RAM size fields */
-        brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = (((scd.cartridge.mask + 1) / 64) - 3) >> 8;
-        brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (((scd.cartridge.mask + 1) / 64) - 3) & 0xff;
+  //       /* Cartridge Backup RAM size fields */
+  //       brm_format[0x10] = brm_format[0x12] = brm_format[0x14] = brm_format[0x16] = (((scd.cartridge.mask + 1) / 64) - 3) >> 8;
+  //       brm_format[0x11] = brm_format[0x13] = brm_format[0x15] = brm_format[0x17] = (((scd.cartridge.mask + 1) / 64) - 3) & 0xff;
 
-        /* format cartridge backup RAM */
-        memcpy(scd.cartridge.area + scd.cartridge.mask + 1 - sizeof(brm_format), brm_format, sizeof(brm_format));
-      }
-    }
-  }
+  //       /* format cartridge backup RAM */
+  //       memcpy(scd.cartridge.area + scd.cartridge.mask + 1 - sizeof(brm_format), brm_format, sizeof(brm_format));
+  //     }
+  //   }
+  // }
 
-  if (sram.on)
-  {
-    /* load SRAM */
-    fp = fopen("./game.srm", "rb");
-    if (fp!=NULL)
-    {
-      fread(sram.sram,0x10000,1, fp);
-      fclose(fp);
-    }
-  }
+  // if (sram.on)
+  // {
+  //   /* load SRAM */
+  //   fp = fopen("./game.srm", "rb");
+  //   if (fp!=NULL)
+  //   {
+  //     fread(sram.sram,0x10000,1, fp);
+  //     fclose(fp);
+  //   }
+  // }
 
   /* reset system hardware */
   system_reset();
@@ -332,44 +338,44 @@ int main (int argc, char **argv) {
       }
     }
 
-    if (system_hw == SYSTEM_MCD)
-    {
-      /* save internal backup RAM (if formatted) */
-      if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
-      {
-        fp = fopen("./scd.brm", "wb");
-        if (fp!=NULL)
-        {
-          fwrite(scd.bram, 0x2000, 1, fp);
-          fclose(fp);
-        }
-      }
+    // if (system_hw == SYSTEM_MCD)
+    // {
+    //   /* save internal backup RAM (if formatted) */
+    //   if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
+    //   {
+    //     fp = fopen("./scd.brm", "wb");
+    //     if (fp!=NULL)
+    //     {
+    //       fwrite(scd.bram, 0x2000, 1, fp);
+    //       fclose(fp);
+    //     }
+    //   }
 
-      /* save cartridge backup RAM (if formatted) */
-      if (scd.cartridge.id)
-      {
-        if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
-        {
-          fp = fopen("./cart.brm", "wb");
-          if (fp!=NULL)
-          {
-            fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
-            fclose(fp);
-          }
-        }
-      }
-    }
+    //   /* save cartridge backup RAM (if formatted) */
+    //   if (scd.cartridge.id)
+    //   {
+    //     if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
+    //     {
+    //       fp = fopen("./cart.brm", "wb");
+    //       if (fp!=NULL)
+    //       {
+    //         fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
+    //         fclose(fp);
+    //       }
+    //     }
+    //   }
+    // }
 
-    if (sram.on)
-    {
-      /* save SRAM */
-      fp = fopen("./game.srm", "wb");
-      if (fp!=NULL)
-      {
-        fwrite(sram.sram,0x10000,1, fp);
-        fclose(fp);
-      }
-    }
+    // if (sram.on)
+    // {
+    //   /* save SRAM */
+    //   fp = fopen("./game.srm", "wb");
+    //   if (fp!=NULL)
+    //   {
+    //     fwrite(sram.sram,0x10000,1, fp);
+    //     fclose(fp);
+    //   }
+    // }
 
     gamehacks_deinit();
 

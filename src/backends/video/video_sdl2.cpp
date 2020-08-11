@@ -99,6 +99,9 @@ int Backend_Video_Update() {
     #if defined(SWITCH) || defined(MACOS)
     sdl_video.screen_width = 1280;
     sdl_video.screen_height = 720;
+    #elif defined(__vita__)
+    sdl_video.screen_width = 960;
+    sdl_video.screen_height = 544;
     #else
     sdl_video.screen_width = sdl_video.surf_screen->w;
     sdl_video.screen_height = sdl_video.surf_screen->h;
@@ -128,15 +131,15 @@ int Backend_Video_Update() {
 
     if (1) { // Integer scaling
       sdl_video.drect.h = (sdl_video.drect.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
+      sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
       SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
     } else {
       SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
     }
 
-    sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
     if (interlaced) sdl_video.drect.w /= 2;
 
-    #ifdef SWITCH
+    #if defined(SWITCH)
     sdl_video.drect.x = 0;
     sdl_video.drect.y = 0;
     #else
