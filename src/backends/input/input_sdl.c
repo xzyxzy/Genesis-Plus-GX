@@ -242,8 +242,7 @@ int Backend_Input_MainLoop() {
     }
   }
   frametimer++;
-  printf("%i\n",frametimer);
-
+  
   return 1;
 }
 

@@ -68,14 +68,10 @@ int Backend_Video_Update() {
     sdl_video.drect.h = sdl_video.srect.h;
     sdl_video.drect.x = 0;
     sdl_video.drect.y = 0;
-
-    /* clear destination surface */
-    SDL_FillRect(sdl_video.surf_screen, 0, 0);
   }
 
   // SDL_UnlockSurface(sdl_video.surf_bitmap);
   SDL_BlitSurface(sdl_video.surf_bitmap, &sdl_video.srect, sdl_video.surf_screen, &sdl_video.drect);
-  SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
 
   ++sdl_video.frames_rendered;
 
@@ -113,5 +109,15 @@ int Backend_Video_CopyBitmap() {
 
 int Backend_Video_SetWindowTitle(char *caption) {
   SDL_WM_SetCaption(caption, NULL);
+  return 1;
+}
+
+int Backend_Video_Present() {
+  SDL_UpdateRect(sdl_video.surf_screen, 0, 0, 0, 0);
+  return 1;
+}
+
+int Backend_Video_Clear() {
+  SDL_FillRect(sdl_video.surf_screen, 0, 0);
   return 1;
 }

@@ -24,10 +24,6 @@ extern "C" {
 #endif
 #endif
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 #include "shared.h"
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
@@ -302,7 +298,7 @@ int main (int argc, char **argv) {
 
   //if (use_sound) Backend_Sound_Pause();
 
-  long double framerateMilliseconds = 1000.0 / 60.0;
+  uint64 framerateMicroseconds = 1000000.0 / 60.0;
 
   gamehacks_init();
 
@@ -315,26 +311,24 @@ int main (int argc, char **argv) {
       
       if (turbo_mode) continue;
 
-      static long double timePrev;
+      uint64 timePrev;
 
       struct timeval timeval_now;
       gettimeofday(&timeval_now, NULL);
-      const uint32 timeNow = (
-        (timeval_now.tv_sec-timeval_start.tv_sec)*1000 + 
-        (timeval_now.tv_usec-timeval_start.tv_usec)/1000
+      uint64 timeNow = (
+        (timeval_now.tv_sec-timeval_start.tv_sec)*1000000 + 
+        timeval_now.tv_usec-timeval_start.tv_usec
       );
 
-      const long double timeNext = timePrev + framerateMilliseconds;
+      uint64 timeNext = timeNow + framerateMicroseconds;
 
-      if (timeNow >= timePrev + 100)
-      {
-        timePrev = (long double)timeNow;
-      }
-      else
-      {
+      if (timeNow >= timePrev + 100) {
+        timePrev = timeNow;
+      } else {
         if (timeNow < timeNext)
-          sleep((timeNext - timeNow) / 1000.0);
-        timePrev += framerateMilliseconds;
+          usleep(timeNext - timeNow);
+          
+        timePrev = timePrev + framerateMicroseconds;
       }
     }
 
@@ -393,13 +387,3 @@ int main (int argc, char **argv) {
   
   return 0;
 }
-
-// Fuck windows and its janky ass hidpi shit
-// No, I am not including a manifest file just to stop you from fucking with scaling, microsoft
-#ifdef _WIN32
-int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
-{
-    SetProcessDPIAware();
-    return main(__argc, __argv);
-}
-#endif

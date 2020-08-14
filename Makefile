@@ -34,6 +34,7 @@ PKGCONFIG = pkg-config
 DEBUG	 ?= 0
 STATIC	 ?= 1
 VERBOSE  ?= 0
+PROFILE	 ?= 0
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -76,6 +77,13 @@ endif
 ifeq ($(DEBUG),1)
 	CFLAGS += -g
 	DEFINES += -DDEBUG
+else
+	CFLAGS += -O2
+	DEFINES += -DNDEBUG
+endif
+
+ifeq ($(PROFILE),1)
+	CFLAGS += -pg -g -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls -fno-default-inline
 endif
 
 ifeq ($(VERBOSE),0)
@@ -110,7 +118,7 @@ LDFLAGS   = $(CFLAGS)
 
 DEFINES   += -DLSB_FIRST -DUSE_16BPP_RENDERING \
 			-DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT \
-			-DM68K_OVERCLOCK_SHIFT=20 -DHOOK_CPU
+			-DM68K_OVERCLOCK_SHIFT=20 #-DHOOK_CPU
 
 INCLUDES  += 	-I./src \
 				-I./src/core \
@@ -192,7 +200,7 @@ SOURCES	+=	src/main \
 			src/gamehacks
 
 
-PKGSUFFIX ?= SUFFIX
+PKGSUFFIX ?= $(SUFFIX)
 
 BINPATH = $(OUTDIR)/$(NAME)$(SUFFIX)
 PKGPATH = $(OUTDIR)/$(NAME)$(PKGSUFFIX)

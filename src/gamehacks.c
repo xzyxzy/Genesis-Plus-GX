@@ -94,6 +94,10 @@ int gamehacks_play_sound(int id) {
 }
 
 void gamehacks_update_sound() {
+    work_ram[mQueue_0] = gamehacks_play_sound(work_ram[mQueue_0]);
+    work_ram[mQueue_1] = gamehacks_play_sound(work_ram[mQueue_1]);
+    work_ram[mQueue_2] = gamehacks_play_sound(work_ram[mQueue_2]);
+
     Backend_Sound_MusicSpeed(
         (work_ram[mFlags] & mFlags_Mask_SpeedShoes) ?
         1.25 : 1
@@ -108,13 +112,13 @@ void gamehacks_update() {
 
 void gamehacks_deinit() { }
 
-void gamehacks_cpuhook(hook_type_t type, int width, unsigned int address, unsigned int value) {
-    if (address == dPlaySnd) {
-        work_ram[mQueue_0] = gamehacks_play_sound(work_ram[mQueue_0]);
-        work_ram[mQueue_1] = gamehacks_play_sound(work_ram[mQueue_1]);
-        work_ram[mQueue_2] = gamehacks_play_sound(work_ram[mQueue_2]);
-    }
-}
+// void gamehacks_cpuhook(hook_type_t type, int width, unsigned int address, unsigned int value) {
+//     if (address == dPlaySnd) {
+//         work_ram[mQueue_0] = gamehacks_play_sound(work_ram[mQueue_0]);
+//         work_ram[mQueue_1] = gamehacks_play_sound(work_ram[mQueue_1]);
+//         work_ram[mQueue_2] = gamehacks_play_sound(work_ram[mQueue_2]);
+//     }
+// }
 
 SDL_Texture *ss_track;
 SDL_Texture *ss_bg;
@@ -123,7 +127,7 @@ int ss_track_frame = 0;
 char *ss_track_path;
 
 void gamehacks_init() {
-    set_cpu_hook(&gamehacks_cpuhook);
+    // set_cpu_hook(&gamehacks_cpuhook);
     ss_track_path = (char *)malloc(80*sizeof(char));
     ss_bg = (SDL_Texture *)Backend_Video_LoadImage(
         "./gamehacks/specialstage/bg.png"
