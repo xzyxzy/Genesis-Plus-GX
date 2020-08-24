@@ -3,8 +3,8 @@
 #include "backends/video/video_base.h"
 #include "cpuhook.h"
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+// #include <SDL2/SDL.h>
+// #include <SDL2/SDL_image.h>
 
 #define mQueue_0 0xEE32 // music
 #define mQueue_1 0xEE32+1 // cmd
@@ -120,20 +120,20 @@ void gamehacks_deinit() { }
 //     }
 // }
 
-SDL_Texture *ss_track;
-SDL_Texture *ss_bg;
-SDL_Rect ss_bg_src;
+// SDL_Texture *ss_track;
+// SDL_Texture *ss_bg;
+// SDL_Rect ss_bg_src;
 int ss_track_frame = 0;
 char *ss_track_path;
 
 void gamehacks_init() {
     // set_cpu_hook(&gamehacks_cpuhook);
     ss_track_path = (char *)malloc(80*sizeof(char));
-    ss_bg = (SDL_Texture *)Backend_Video_LoadImage(
-        "./gamehacks/specialstage/bg.png"
-    );
-    ss_bg_src.w = 398;
-    ss_bg_src.h = 224;
+    // ss_bg = (SDL_Texture *)Backend_Video_LoadImage(
+    //     "./gamehacks/specialstage/bg.png"
+    // );
+    // ss_bg_src.w = 398;
+    // ss_bg_src.h = 224;
 }
 
 void gamehacks_render_ss_track() {
@@ -143,23 +143,23 @@ void gamehacks_render_ss_track() {
         work_ram[SSTrack_anim],
         ss_track_frame + 1
     );
-    ss_track = (SDL_Texture *)Backend_Video_LoadImage(ss_track_path);
-    if (ss_track == NULL) {
-        if (ss_track_frame != 0) {
-            ss_track_frame = 0;
-            gamehacks_render_ss_track();
-        }
+    // ss_track = (SDL_Texture *)Backend_Video_LoadImage(ss_track_path);
+    // if (ss_track == NULL) {
+    //     if (ss_track_frame != 0) {
+    //         ss_track_frame = 0;
+    //         gamehacks_render_ss_track();
+    //     }
         
-        return;
-    }
+    //     return;
+    // }
     ss_track_frame++;
 
-    SDL_RenderCopy(
-        Backend_Video_GetRenderer(),
-        ss_track,
-        NULL,
-        NULL
-    );
+    // SDL_RenderCopy(
+    //     Backend_Video_GetRenderer(),
+    //     ss_track,
+    //     NULL,
+    //     NULL
+    // );
 }
 
 void gamehacks_render_ss_bg() {
@@ -167,26 +167,26 @@ void gamehacks_render_ss_bg() {
     bg_xscroll %= 256;
     bg_xscroll = 256 - bg_xscroll;
     bg_xscroll += 184;
-    ss_bg_src.x = bg_xscroll;
+    // ss_bg_src.x = bg_xscroll;
     uint16 bg_yscroll      = (*(uint32 *)&vsram[0])   >> 16;
     bg_yscroll  &= 0x0FF;
     bg_yscroll %= 256;
-    ss_bg_src.y = bg_yscroll;
+    // ss_bg_src.y = bg_yscroll;
 
-    SDL_RenderCopy(
-        Backend_Video_GetRenderer(),
-        ss_bg,
-        &ss_bg_src,
-        NULL
-    );
+    // SDL_RenderCopy(
+    //     Backend_Video_GetRenderer(),
+    //     ss_bg,
+    //     &ss_bg_src,
+    //     NULL
+    // );
 }
 
 void gamehacks_render() {
-    int in_special_stage = work_ram[Game_Mode] == GameModeID_SpecialStage;
+    // int in_special_stage = work_ram[Game_Mode] == GameModeID_SpecialStage;
     // printf("%x\n", *((long *)(work_ram + SS_Cur_Speed_Factor)));
-    render_bg_disable = in_special_stage;
-    if (in_special_stage) {
-        gamehacks_render_ss_bg();
-        gamehacks_render_ss_track();
-    }
+    // render_bg_disable = in_special_stage;
+    // if (in_special_stage) {
+    //     gamehacks_render_ss_bg();
+    //     gamehacks_render_ss_track();
+    // }
 }

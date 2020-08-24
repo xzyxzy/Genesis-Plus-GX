@@ -44,6 +44,10 @@ int Backend_Video_Init() {
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
+  SDL_LockSurface(sdl_video.surf_bitmap);
+  bitmap.data = (unsigned char *)sdl_video.surf_bitmap->pixels;
+  SDL_UnlockSurface(sdl_video.surf_bitmap);
+
   return 1;
 }
 
@@ -95,14 +99,6 @@ int Backend_Video_SetFullscreen(int arg_fullscreen) {
 
 int Backend_Video_ToggleFullscreen() {
   Backend_Video_SetFullscreen(!sdl_video.fullscreen);
-
-  return 1;
-}
-
-int Backend_Video_CopyBitmap() {
-  SDL_LockSurface(sdl_video.surf_bitmap);
-  bitmap.data = (unsigned char *)sdl_video.surf_bitmap->pixels;
-  SDL_UnlockSurface(sdl_video.surf_bitmap);
 
   return 1;
 }

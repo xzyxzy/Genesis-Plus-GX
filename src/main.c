@@ -184,11 +184,6 @@ int main (int argc, char **argv) {
     }
   }
 
-  /* initialize backends */
-  Backend_Video_Init();
-  Backend_Sound_Init();
-  Backend_Input_Init();
-
   /* initialize Genesis virtual system */
   memset(&bitmap, 0, sizeof(t_bitmap));
   bitmap.width        = 720;
@@ -202,7 +197,11 @@ int main (int argc, char **argv) {
 #elif defined(USE_32BPP_RENDERING)
   bitmap.pitch        = (bitmap.width * 4);
 #endif
-  Backend_Video_CopyBitmap();
+  /* initialize backends */
+  Backend_Sound_Init();
+  Backend_Input_Init();
+  Backend_Video_Init();
+
   bitmap.viewport.changed = 3;
 
   char * rom_path = argv[1];
@@ -311,22 +310,27 @@ int main (int argc, char **argv) {
       
       if (turbo_mode) continue;
 
-      uint64 timePrev;
+      uint32 timePrev;
 
       struct timeval timeval_now;
       gettimeofday(&timeval_now, NULL);
-      uint64 timeNow = (
+      uint32 timeNow = (
         (timeval_now.tv_sec-timeval_start.tv_sec)*1000000 + 
         timeval_now.tv_usec-timeval_start.tv_usec
       );
 
-      uint64 timeNext = timeNow + framerateMicroseconds;
+      uint32 timeNext = timeNow + framerateMicroseconds;
 
       if (timeNow >= timePrev + 100) {
         timePrev = timeNow;
       } else {
-        if (timeNow < timeNext)
-          usleep(timeNext - timeNow);
+        if (timeNow < timeNext) {
+          #ifdef USE_NORMAL_SLEEP
+            sleep((timeNext - timeNow) / 100000.0);
+          #else
+            usleep(timeNext - timeNow);
+          #endif
+        }
           
         timePrev = timePrev + framerateMicroseconds;
       }

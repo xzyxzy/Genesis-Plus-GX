@@ -97,11 +97,11 @@ endif
 
 BACKEND_VIDEO ?= sdl2
 BACKEND_INPUT ?= sdl2
-BACKEND_AUDIO ?= soloud_sdl2
+BACKEND_AUDIO ?= soloud
 
 include Makefile_cfgs/Backends/Video/$(BACKEND_VIDEO).cfg
-include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
 include Makefile_cfgs/Backends/Input/$(BACKEND_INPUT).cfg
+include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
 
 # =============================================================================
 
@@ -117,7 +117,7 @@ endif
 LDFLAGS   = $(CFLAGS)
 
 DEFINES   += -DLSB_FIRST -DUSE_16BPP_RENDERING \
-			-DMAXROMSIZE=33554432 -DHAVE_NO_SPRITE_LIMIT \
+			-DMAXROMSIZE=4194304 -DHAVE_NO_SPRITE_LIMIT \
 			-DM68K_OVERCLOCK_SHIFT=20 #-DHOOK_CPU
 
 INCLUDES  += 	-I./src \

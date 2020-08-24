@@ -19,7 +19,6 @@ int Backend_Video_ToggleFullscreen();
 int Backend_Video_Update();
 int Backend_Video_Clear();
 int Backend_Video_Present();
-int Backend_Video_CopyBitmap();
 int Backend_Video_SetWindowTitle(char *caption);
 void *Backend_Video_LoadImage(char *path);
 void *Backend_Video_GetRenderer();

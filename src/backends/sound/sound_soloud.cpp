@@ -37,7 +37,7 @@ int Backend_Sound_Close() {
 int Backend_Sound_Init() {
     soloud.init(
         Soloud::CLIP_ROUNDOFF,
-        Soloud::SDL2,
+        Soloud::AUTO,
         SOUND_FREQUENCY,
         SOUND_SAMPLES_SIZE,
         2
