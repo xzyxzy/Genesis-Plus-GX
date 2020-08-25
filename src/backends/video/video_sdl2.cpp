@@ -8,6 +8,8 @@
 #include <SDL2/SDL_image.h>
 #include "shared.h"
 
+#include "filters.h" // libxbr
+
 #if defined(USE_8BPP_RENDERING)
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB332
 #elif defined(USE_15BPP_RENDERING)
@@ -20,6 +22,19 @@
 
 std::map<std::string,SDL_Texture*> tex_cache;
 
+enum Screen_Filter {
+  FILTER_NONE,
+  FILTER_XBR2X,
+  FILTER_XBR3X,
+  FILTER_XBR4X,
+  FILTER_HQ2X,
+  FILTER_HQ3X,
+  FILTER_HQ4X
+};
+
+Screen_Filter screen_filter = FILTER_XBR4X;
+Screen_Filter screen_filter_prev = FILTER_NONE;
+
 struct {
   SDL_Window* window;
   SDL_Renderer* renderer;
@@ -31,6 +46,7 @@ struct {
   Uint32 frames_rendered;
   Uint16 screen_width;
   Uint16 screen_height;
+  Uint8 * pixels;
   int fullscreen;
 } sdl_video;
 
@@ -40,6 +56,56 @@ int SDL_OnResize(void* data, SDL_Event* event) {
       bitmap.viewport.changed = 1;
   }
   return 1;
+}
+
+xbr_data *xbrData;
+
+int Get_Scale_Factor() {
+  switch (screen_filter) {
+    case FILTER_XBR2X:
+    case FILTER_HQ2X:
+      return 2;
+    case FILTER_XBR3X:
+    case FILTER_HQ3X:
+      return 3;
+    case FILTER_XBR4X:
+    case FILTER_HQ4X:
+      return 4;  
+  }
+  return 1;
+}
+
+void Init_Bitmap() {
+  int scale_factor = Get_Scale_Factor();
+
+  if (sdl_video.surf_texture != NULL) SDL_DestroyTexture(sdl_video.surf_texture);
+  if (sdl_video.surf_bitmap != NULL) SDL_FreeSurface(sdl_video.surf_bitmap);
+
+  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(
+    0,
+    400 * scale_factor,
+    224 * scale_factor,
+    SDL_BITSPERPIXEL(SURFACE_FORMAT),
+    SURFACE_FORMAT
+  );
+
+  sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
+  SDL_SetTextureBlendMode(sdl_video.surf_texture, SDL_BLENDMODE_BLEND);
+
+  switch (screen_filter) {
+    case FILTER_NONE:
+      SDL_LockSurface(sdl_video.surf_bitmap);
+      bitmap.data = (unsigned char *)sdl_video.surf_bitmap->pixels;
+      SDL_UnlockSurface(sdl_video.surf_bitmap);
+      break;
+    default:
+      if (xbrData == NULL) {
+        xbrData = (xbr_data*)malloc(sizeof(xbr_data));
+        xbr_init_data(xbrData);
+      }
+      break;
+  }
+
 }
 
 int Backend_Video_Init() {
@@ -69,17 +135,14 @@ int Backend_Video_Init() {
   );
   sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
-  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(0, 720, 576, SDL_BITSPERPIXEL(SURFACE_FORMAT), SURFACE_FORMAT);
-  sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
-  SDL_SetTextureBlendMode(sdl_video.surf_texture, SDL_BLENDMODE_BLEND);
+  sdl_video.pixels = (Uint8*)malloc(400 * 224 * 4); // 400x224 @ 32bpp
+  bitmap.data = (unsigned char *)sdl_video.pixels;
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
 
   SDL_AddEventWatch(SDL_OnResize, sdl_video.window);
 
-  SDL_LockSurface(sdl_video.surf_bitmap);
-  bitmap.data = (unsigned char *)sdl_video.surf_bitmap->pixels;
-  SDL_UnlockSurface(sdl_video.surf_bitmap);
+  Init_Bitmap();
 
   return 1;
 }
@@ -89,6 +152,47 @@ int Backend_Video_Clear() {
   SDL_SetRenderDrawColor(sdl_video.renderer, 0, 0, 0, 255);
   SDL_RenderClear(sdl_video.renderer);
   return 1;
+}
+
+void Copy_Bitmap() {
+  if (screen_filter == FILTER_NONE) return;
+
+  int scale_factor = Get_Scale_Factor();
+  
+  xbr_params xbrParams;
+
+  SDL_LockSurface(sdl_video.surf_bitmap);
+
+	xbrParams.data = xbrData;
+	xbrParams.input = sdl_video.pixels;
+	xbrParams.output = (uint8_t*)sdl_video.surf_bitmap->pixels;
+	xbrParams.inWidth = 400;
+	xbrParams.inHeight = 224;
+	xbrParams.inPitch = xbrParams.inWidth * 4;
+	xbrParams.outPitch = xbrParams.inWidth * Get_Scale_Factor() * 4;
+
+  switch (screen_filter) {
+    case FILTER_XBR2X:
+      xbr_filter_xbr2x(&xbrParams);
+      break;
+    case FILTER_XBR3X:
+      xbr_filter_xbr3x(&xbrParams);
+      break;
+    case FILTER_XBR4X:
+      xbr_filter_xbr4x(&xbrParams);
+      break;
+    case FILTER_HQ2X:
+      xbr_filter_hq2x(&xbrParams);
+      break;
+    case FILTER_HQ3X:
+      xbr_filter_hq3x(&xbrParams);
+      break;
+    case FILTER_HQ4X:
+      xbr_filter_hq4x(&xbrParams);
+      break;
+  }
+
+  SDL_UnlockSurface(sdl_video.surf_bitmap);
 }
 
 int Backend_Video_Update() {
@@ -114,23 +218,25 @@ int Backend_Video_Update() {
 
     bitmap.viewport.changed &= ~1;
 
+    int scale_factor = Get_Scale_Factor();
+
     /* source bitmap */
-    sdl_video.srect.w = bitmap.viewport.w+2*bitmap.viewport.x;
-    sdl_video.srect.h = bitmap.viewport.h+2*bitmap.viewport.y;
+    sdl_video.srect.w = (bitmap.viewport.w*scale_factor) + (2*bitmap.viewport.x);
+    sdl_video.srect.h = (bitmap.viewport.h*scale_factor) + (2*bitmap.viewport.y);
     if (interlaced) sdl_video.srect.h += bitmap.viewport.h;
 
     sdl_video.srect.x = 0;
     sdl_video.srect.y = 0;
-    if (sdl_video.srect.w > sdl_video.screen_width)
-    {
-      sdl_video.srect.x = (sdl_video.srect.w - sdl_video.screen_width) / 2;
-      sdl_video.srect.w = sdl_video.screen_width;
-    }
-    if (sdl_video.srect.h > sdl_video.screen_height)
-    {
-      sdl_video.srect.y = (sdl_video.srect.h - sdl_video.screen_height) / 2;
-      sdl_video.srect.h = sdl_video.screen_height;
-    }
+    // if (sdl_video.srect.w > sdl_video.screen_width)
+    // {
+    //   sdl_video.srect.x = (sdl_video.srect.w - sdl_video.screen_width) / 2;
+    //   sdl_video.srect.w = sdl_video.screen_width;
+    // }
+    // if (sdl_video.srect.h > sdl_video.screen_height)
+    // {
+    //   sdl_video.srect.y = (sdl_video.srect.h - sdl_video.screen_height) / 2;
+    //   sdl_video.srect.h = sdl_video.screen_height;
+    // }
 
     sdl_video.drect.h = sdl_video.screen_height;
 
@@ -156,6 +262,7 @@ int Backend_Video_Update() {
     SDL_FillRect(sdl_video.surf_screen, 0, 0);
   }
 
+  Copy_Bitmap();
 
   Uint32 tex_fmt_id;
   SDL_QueryTexture(sdl_video.surf_texture, &tex_fmt_id, NULL, NULL, NULL);

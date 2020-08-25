@@ -105,6 +105,14 @@ include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
 
 # =============================================================================
 
+INCLUDES +=	-I./lib/libxbr
+SOURCES +=	lib/libxbr/xbr \
+			lib/libxbr/hq2x \
+			lib/libxbr/hq3x \
+			lib/libxbr/hq4x
+
+# =============================================================================
+
 CFLAGS += `$(PKGCONFIG) --cflags zlib`
 LIBS   += `$(PKGCONFIG) --libs zlib`
 
@@ -116,7 +124,7 @@ endif
 
 LDFLAGS   = $(CFLAGS)
 
-DEFINES   += -DLSB_FIRST -DUSE_16BPP_RENDERING \
+DEFINES   += -DLSB_FIRST -DUSE_32BPP_RENDERING \
 			-DMAXROMSIZE=4194304 -DHAVE_NO_SPRITE_LIMIT \
 			-DM68K_OVERCLOCK_SHIFT=20 #-DHOOK_CPU
 
