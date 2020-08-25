@@ -20,112 +20,67 @@
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
 #endif
 
-std::map<std::string,SDL_Texture*> tex_cache;
+SDL_Window* sdl_window;
+SDL_Renderer* sdl_renderer;
+SDL_Surface* sdl_winsurf;
+SDL_Surface* sdl_bitmap;
+SDL_Texture* sdl_texture;
+SDL_Rect rect_source;
+SDL_Rect rect_dest;
+Uint16 screen_width;
+Uint16 screen_height;
+int fullscreen;
 
-enum Screen_Filter {
-  FILTER_NONE,
-  FILTER_XBR2X,
-  FILTER_XBR3X,
-  FILTER_XBR4X,
-  FILTER_HQ2X,
-  FILTER_HQ3X,
-  FILTER_HQ4X
-};
-
-Screen_Filter screen_filter = FILTER_XBR4X;
-Screen_Filter screen_filter_prev = FILTER_NONE;
-
-struct {
-  SDL_Window* window;
-  SDL_Renderer* renderer;
-  SDL_Surface* surf_screen;
-  SDL_Surface* surf_bitmap;
-  SDL_Texture* surf_texture;
-  SDL_Rect srect;
-  SDL_Rect drect;
-  Uint32 frames_rendered;
-  Uint16 screen_width;
-  Uint16 screen_height;
-  Uint8 * pixels;
-  int fullscreen;
-} sdl_video;
+Uint32 tex_fmt_id;
+SDL_PixelFormat *dst_fmt;
 
 int SDL_OnResize(void* data, SDL_Event* event) {
-  if (event->type == SDL_WINDOWEVENT &&
-      event->window.event == SDL_WINDOWEVENT_RESIZED) {
-      bitmap.viewport.changed = 1;
-  }
-  return 1;
-}
-
-xbr_data *xbrData;
-
-int Get_Scale_Factor() {
-  switch (screen_filter) {
-    case FILTER_XBR2X:
-    case FILTER_HQ2X:
-      return 2;
-    case FILTER_XBR3X:
-    case FILTER_HQ3X:
-      return 3;
-    case FILTER_XBR4X:
-    case FILTER_HQ4X:
-      return 4;  
-  }
+  if (
+    event->type == SDL_WINDOWEVENT &&
+    event->window.event == SDL_WINDOWEVENT_RESIZED
+  ) bitmap.viewport.changed = 1;
   return 1;
 }
 
 void Init_Bitmap() {
-  int scale_factor = Get_Scale_Factor();
+  if (sdl_texture != NULL) SDL_DestroyTexture(sdl_texture);
+  if (sdl_bitmap != NULL) SDL_FreeSurface(sdl_bitmap);
 
-  if (sdl_video.surf_texture != NULL) SDL_DestroyTexture(sdl_video.surf_texture);
-  if (sdl_video.surf_bitmap != NULL) SDL_FreeSurface(sdl_video.surf_bitmap);
-
-  sdl_video.surf_bitmap = SDL_CreateRGBSurfaceWithFormat(
+  sdl_bitmap = SDL_CreateRGBSurfaceWithFormat(
     0,
-    400 * scale_factor,
-    224 * scale_factor,
+    400,
+    224,
     SDL_BITSPERPIXEL(SURFACE_FORMAT),
     SURFACE_FORMAT
   );
 
-  sdl_video.surf_texture = SDL_CreateTextureFromSurface(sdl_video.renderer, sdl_video.surf_bitmap);
-  SDL_SetTextureBlendMode(sdl_video.surf_texture, SDL_BLENDMODE_BLEND);
+  sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, sdl_bitmap);
+  SDL_SetTextureBlendMode(sdl_texture, SDL_BLENDMODE_BLEND);
 
-  switch (screen_filter) {
-    case FILTER_NONE:
-      SDL_LockSurface(sdl_video.surf_bitmap);
-      bitmap.data = (unsigned char *)sdl_video.surf_bitmap->pixels;
-      SDL_UnlockSurface(sdl_video.surf_bitmap);
-      break;
-    default:
-      if (xbrData == NULL) {
-        xbrData = (xbr_data*)malloc(sizeof(xbr_data));
-        xbr_init_data(xbrData);
-      }
-      break;
-  }
-
+  SDL_LockSurface(sdl_bitmap);
+  bitmap.data = (unsigned char *)sdl_bitmap->pixels;
+  SDL_UnlockSurface(sdl_bitmap);
 }
 
 int Backend_Video_Init() {
   if(SDL_InitSubSystem(SDL_INIT_VIDEO) < 0) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "SDL Video initialization failed", sdl_video.window);
+    SDL_ShowSimpleMessageBox(
+      SDL_MESSAGEBOX_ERROR,
+      "Error",
+      "SDL Video initialization failed.",
+      sdl_window
+    );
     return 0;
   }
 
   IMG_Init(IMG_INIT_PNG);
 
-  uint32 window_flags = (
-      (sdl_video.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) |
-      SDL_WINDOW_RESIZABLE
-  );
-
+  uint32 window_flags = SDL_WINDOW_RESIZABLE;
   #ifndef __EMSCRIPTEN__
   window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
   #endif
 
-  sdl_video.window = SDL_CreateWindow(
+  sdl_window = SDL_CreateWindow(
     "Loading...",
     SDL_WINDOWPOS_UNDEFINED,
     SDL_WINDOWPOS_UNDEFINED,
@@ -133,213 +88,178 @@ int Backend_Video_Init() {
     VIDEO_HEIGHT * WINDOW_SCALE,
     window_flags
   );
-  sdl_video.renderer = SDL_CreateRenderer(sdl_video.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
-  sdl_video.pixels = (Uint8*)malloc(400 * 224 * 4); // 400x224 @ 32bpp
-  bitmap.data = (unsigned char *)sdl_video.pixels;
-  sdl_video.frames_rendered = 0;
-  SDL_ShowCursor(0);
 
-  SDL_AddEventWatch(SDL_OnResize, sdl_video.window);
+  sdl_renderer = SDL_CreateRenderer(
+    sdl_window,
+    -1,
+    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+  );
+  
+  sdl_winsurf = SDL_GetWindowSurface(sdl_window);
 
   Init_Bitmap();
+
+  SDL_ShowCursor(0);
+  SDL_AddEventWatch(SDL_OnResize, sdl_window);
+
+  SDL_QueryTexture(sdl_texture, &tex_fmt_id, NULL, NULL, NULL);
+  dst_fmt = SDL_AllocFormat(tex_fmt_id);
 
   return 1;
 }
 
 int Backend_Video_Clear() {
-  // TODO: not do this every frame
-  SDL_SetRenderDrawColor(sdl_video.renderer, 0, 0, 0, 255);
-  SDL_RenderClear(sdl_video.renderer);
+  SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
+  SDL_RenderClear(sdl_renderer);
   return 1;
 }
 
-void Copy_Bitmap() {
-  if (screen_filter == FILTER_NONE) return;
-
-  int scale_factor = Get_Scale_Factor();
-  
-  xbr_params xbrParams;
-
-  SDL_LockSurface(sdl_video.surf_bitmap);
-
-	xbrParams.data = xbrData;
-	xbrParams.input = sdl_video.pixels;
-	xbrParams.output = (uint8_t*)sdl_video.surf_bitmap->pixels;
-	xbrParams.inWidth = 400;
-	xbrParams.inHeight = 224;
-	xbrParams.inPitch = xbrParams.inWidth * 4;
-	xbrParams.outPitch = xbrParams.inWidth * Get_Scale_Factor() * 4;
-
-  switch (screen_filter) {
-    case FILTER_XBR2X:
-      xbr_filter_xbr2x(&xbrParams);
-      break;
-    case FILTER_XBR3X:
-      xbr_filter_xbr3x(&xbrParams);
-      break;
-    case FILTER_XBR4X:
-      xbr_filter_xbr4x(&xbrParams);
-      break;
-    case FILTER_HQ2X:
-      xbr_filter_hq2x(&xbrParams);
-      break;
-    case FILTER_HQ3X:
-      xbr_filter_hq3x(&xbrParams);
-      break;
-    case FILTER_HQ4X:
-      xbr_filter_hq4x(&xbrParams);
-      break;
-  }
-
-  SDL_UnlockSurface(sdl_video.surf_bitmap);
-}
-
-int Backend_Video_Update() {
-  if (system_hw == SYSTEM_MCD) system_frame_scd(0);
-  else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD) system_frame_gen(0);
-  else system_frame_sms(0);
+void Update_Viewport() {
+  if (!(bitmap.viewport.changed & 1)) return;
 
   /* viewport size changed */
-  if(bitmap.viewport.changed & 1)
-  {
-    sdl_video.surf_screen  = SDL_GetWindowSurface(sdl_video.window);
+  sdl_winsurf  = SDL_GetWindowSurface(sdl_window);
 
-    #if defined(SWITCH) || defined(MACOS)
-    sdl_video.screen_width = 1280;
-    sdl_video.screen_height = 720;
-    #elif defined(__vita__)
-    sdl_video.screen_width = 960;
-    sdl_video.screen_height = 544;
-    #else
-    sdl_video.screen_width = sdl_video.surf_screen->w;
-    sdl_video.screen_height = sdl_video.surf_screen->h;
-    #endif
+  #if defined(SWITCH) || defined(MACOS)
+  screen_width = 1280;
+  screen_height = 720;
+  #elif defined(__vita__)
+  screen_width = 960;
+  screen_height = 544;
+  #else
+  screen_width = sdl_winsurf->w;
+  screen_height = sdl_winsurf->h;
+  #endif
 
-    bitmap.viewport.changed &= ~1;
+  bitmap.viewport.changed &= ~1;
 
-    int scale_factor = Get_Scale_Factor();
+  /* source bitmap */
+  rect_source.w = bitmap.viewport.w + (2*bitmap.viewport.x);
+  rect_source.h = bitmap.viewport.h + (2*bitmap.viewport.y);
+  if (interlaced) rect_source.h += bitmap.viewport.h;
 
-    /* source bitmap */
-    sdl_video.srect.w = (bitmap.viewport.w*scale_factor) + (2*bitmap.viewport.x);
-    sdl_video.srect.h = (bitmap.viewport.h*scale_factor) + (2*bitmap.viewport.y);
-    if (interlaced) sdl_video.srect.h += bitmap.viewport.h;
+  rect_source.x = 0;
+  rect_source.y = 0;
+  // if (rect_source.w > screen_width)
+  // {
+  //   rect_source.x = (rect_source.w - screen_width) / 2;
+  //   rect_source.w = screen_width;
+  // }
+  // if (rect_source.h > screen_height)
+  // {
+  //   rect_source.y = (rect_source.h - screen_height) / 2;
+  //   rect_source.h = screen_height;
+  // }
 
-    sdl_video.srect.x = 0;
-    sdl_video.srect.y = 0;
-    // if (sdl_video.srect.w > sdl_video.screen_width)
-    // {
-    //   sdl_video.srect.x = (sdl_video.srect.w - sdl_video.screen_width) / 2;
-    //   sdl_video.srect.w = sdl_video.screen_width;
-    // }
-    // if (sdl_video.srect.h > sdl_video.screen_height)
-    // {
-    //   sdl_video.srect.y = (sdl_video.srect.h - sdl_video.screen_height) / 2;
-    //   sdl_video.srect.h = sdl_video.screen_height;
-    // }
+  rect_dest.h = screen_height;
 
-    sdl_video.drect.h = sdl_video.screen_height;
-
-    if (1) { // Integer scaling
-      sdl_video.drect.h = (sdl_video.drect.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
-      sdl_video.drect.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * sdl_video.drect.h;
-      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-    } else {
-      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    }
-
-    if (interlaced) sdl_video.drect.w /= 2;
-
-    #if defined(SWITCH)
-    sdl_video.drect.x = 0;
-    sdl_video.drect.y = 0;
-    #else
-    sdl_video.drect.x = (sdl_video.screen_width / 2.0) - (sdl_video.drect.w / 2.0);
-    sdl_video.drect.y = (sdl_video.screen_height / 2.0) - (sdl_video.drect.h / 2.0);
-    #endif
-
-    /* clear destination surface */
-    SDL_FillRect(sdl_video.surf_screen, 0, 0);
+  if (1) { // Integer scaling
+    rect_dest.h = (rect_dest.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
+    rect_dest.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * rect_dest.h;
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+  } else {
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
   }
 
-  Copy_Bitmap();
+  if (interlaced) rect_dest.w /= 2;
 
-  Uint32 tex_fmt_id;
-  SDL_QueryTexture(sdl_video.surf_texture, &tex_fmt_id, NULL, NULL, NULL);
+  #if defined(SWITCH)
+  rect_dest.x = 0;
+  rect_dest.y = 0;
+  #else
+  rect_dest.x = (screen_width / 2.0) - (rect_dest.w / 2.0);
+  rect_dest.y = (screen_height / 2.0) - (rect_dest.h / 2.0);
+  #endif
 
+  /* clear destination surface */
+  SDL_FillRect(sdl_winsurf, 0, 0);
+}
+
+void Update_Texture() {
   /* Set up a destination surface for the texture update */
-  SDL_PixelFormat *dst_fmt = SDL_AllocFormat(tex_fmt_id);
-  SDL_LockSurface(sdl_video.surf_bitmap);
-  SDL_Surface *temp = SDL_ConvertSurface(sdl_video.surf_bitmap, dst_fmt, 0);
-  SDL_UnlockSurface(sdl_video.surf_bitmap);
+  SDL_LockSurface(sdl_bitmap);
+  SDL_Surface *temp = SDL_ConvertSurface(sdl_bitmap, dst_fmt, 0);
+  SDL_UnlockSurface(sdl_bitmap);
 
   Uint32 key_color = SDL_MapRGB(
     temp->format,
     0xFF, 0x00, 0xFF
   );
 
+  // "Green screen" the image
   for (int i = 0; i < temp->w * temp->h; i++) {
     if (((Uint32*)temp->pixels)[i] != key_color) continue;
     ((Uint32*)temp->pixels)[i] &= 0x00FFFFFF; 
   }
 
-  SDL_FreeFormat(dst_fmt);
-  SDL_UpdateTexture(sdl_video.surf_texture, NULL, temp->pixels, temp->pitch);
+  SDL_UpdateTexture(sdl_texture, NULL, temp->pixels, temp->pitch);
   SDL_FreeSurface(temp);
+}
 
+void Update_Renderer() {
   if (mirrormode) {
     SDL_RenderCopyEx(
-      sdl_video.renderer,
-      sdl_video.surf_texture,
-      &sdl_video.srect,
-      &sdl_video.drect,
+      sdl_renderer,
+      sdl_texture,
+      &rect_source,
+      &rect_dest,
       0,
       NULL,
       SDL_FLIP_HORIZONTAL
     );
   } else {
     SDL_RenderCopy(
-      sdl_video.renderer,
-      sdl_video.surf_texture,
-      &sdl_video.srect,
-      &sdl_video.drect
+      sdl_renderer,
+      sdl_texture,
+      &rect_source,
+      &rect_dest
     );
   }
+}
 
-  ++sdl_video.frames_rendered;
+int Backend_Video_Update() {
+  Update_Viewport();
+  Update_Texture();
+  Update_Renderer();
+
   return 1;
 }
 
 int Backend_Video_Present() {
-  SDL_RenderPresent(sdl_video.renderer);
+  SDL_RenderPresent(sdl_renderer);
   return 1;
 }
 
 int Backend_Video_Close() {
-  SDL_FreeSurface(sdl_video.surf_bitmap);
-  SDL_DestroyWindow(sdl_video.window);
+  SDL_FreeFormat(dst_fmt);
+  SDL_DestroyTexture(sdl_texture);
+  SDL_FreeSurface(sdl_bitmap);
+  SDL_DestroyWindow(sdl_window);
   SDL_Quit();
 
   return 1;
 }
 
 int Backend_Video_SetFullscreen(int arg_fullscreen) {
-  sdl_video.fullscreen = arg_fullscreen;
-  SDL_SetWindowFullscreen(sdl_video.window, sdl_video.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-
+  fullscreen = arg_fullscreen;
+  SDL_SetWindowFullscreen(
+    sdl_window,
+    fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
+  );
   return 1;
 }
 
 int Backend_Video_ToggleFullscreen() {
-  Backend_Video_SetFullscreen(!sdl_video.fullscreen);
-
+  Backend_Video_SetFullscreen(!fullscreen);
   return 1;
 }
 
 int Backend_Video_SetWindowTitle(char *caption) {
-  SDL_SetWindowTitle(sdl_video.window, caption);
+  SDL_SetWindowTitle(sdl_window, caption);
   return 1;
 }
+
+std::map<std::string,SDL_Texture*> tex_cache;
 
 void *Backend_Video_LoadImage(char *path) {
     std::string pathstr = path;
@@ -350,13 +270,11 @@ void *Backend_Video_LoadImage(char *path) {
     } else {
       SDL_Surface* tmp_surface = IMG_Load(path);
       if (!tmp_surface) return NULL;
-      tex = SDL_CreateTextureFromSurface(sdl_video.renderer, tmp_surface);
+      tex = SDL_CreateTextureFromSurface(sdl_renderer, tmp_surface);
       SDL_FreeSurface(tmp_surface);
       tex_cache.insert(it,std::pair<std::string,SDL_Texture*>(pathstr,tex));
     }
     return (void *)tex;
 }
 
-void *Backend_Video_GetRenderer() {
-  return (void *)sdl_video.renderer;
-}
+void *Backend_Video_GetRenderer() { return (void *)sdl_renderer; }

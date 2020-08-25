@@ -130,6 +130,11 @@ void mainloop() {
   #endif
   Backend_Video_Clear();
   gamehacks_render();
+
+  if (system_hw == SYSTEM_MCD) system_frame_scd(0);
+  else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD) system_frame_gen(0);
+  else system_frame_sms(0);
+
   Backend_Video_Update();
   Backend_Video_Present();
   int sound_update_size = audio_update(soundframe) * 2;

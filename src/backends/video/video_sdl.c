@@ -52,10 +52,6 @@ int Backend_Video_Init() {
 }
 
 int Backend_Video_Update() {
-  if (system_hw == SYSTEM_MCD) system_frame_scd(0);
-  else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD) system_frame_gen(0);
-  else system_frame_sms(0);
-
   /* viewport size changed */
   if(bitmap.viewport.changed & 1)
   {
