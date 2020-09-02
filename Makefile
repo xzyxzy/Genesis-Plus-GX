@@ -95,21 +95,26 @@ endif
 # Backends
 # =============================================================================
 
-BACKEND_VIDEO ?= sdl2
-BACKEND_INPUT ?= sdl2
+BACKEND_VIDEO ?= glfw
+BACKEND_INPUT ?= glfw
 BACKEND_AUDIO ?= soloud
 
 include Makefile_cfgs/Backends/Video/$(BACKEND_VIDEO).cfg
 include Makefile_cfgs/Backends/Input/$(BACKEND_INPUT).cfg
 include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
 
+DEFINES += \
+	-DBACKEND_VIDEO=$(BACKEND_VIDEO) \
+	-DBACKEND_INPUT=$(BACKEND_INPUT) \
+	-DBACKEND_AUDIO=$(BACKEND_AUDIO)
+
 # =============================================================================
 
-INCLUDES +=	-I./lib/libxbr
-SOURCES +=	lib/libxbr/xbr \
-			lib/libxbr/hq2x \
-			lib/libxbr/hq3x \
-			lib/libxbr/hq4x
+# INCLUDES +=	-I./lib/libxbr
+# SOURCES +=	lib/libxbr/xbr \
+# 			lib/libxbr/hq2x \
+# 			lib/libxbr/hq3x \
+# 			lib/libxbr/hq4x
 
 # =============================================================================
 

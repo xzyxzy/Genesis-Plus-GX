@@ -203,9 +203,9 @@ int main (int argc, char **argv) {
   bitmap.pitch        = (bitmap.width * 4);
 #endif
   /* initialize backends */
-  Backend_Sound_Init();
-  Backend_Input_Init();
   Backend_Video_Init();
+  Backend_Input_Init();
+  Backend_Sound_Init();
 
   bitmap.viewport.changed = 3;
 

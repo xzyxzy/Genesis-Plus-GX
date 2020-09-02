@@ -8,8 +8,6 @@
 #include <SDL2/SDL_image.h>
 #include "shared.h"
 
-#include "filters.h" // libxbr
-
 #if defined(USE_8BPP_RENDERING)
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB332
 #elif defined(USE_15BPP_RENDERING)

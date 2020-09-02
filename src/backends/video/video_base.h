@@ -1,7 +1,7 @@
 #ifndef __BACKEND_VIDEO_BASE___
 #define __BACKEND_VIDEO_BASE___
 
-#define VIDEO_WIDTH  398
+#define VIDEO_WIDTH  400
 #define VIDEO_HEIGHT 224
 
 #define WINDOW_SCALE 3

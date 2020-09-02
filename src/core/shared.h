@@ -38,6 +38,7 @@
 #include "state.h"
 
 extern int running;
+extern void *window_shared;
 
 #endif /* _SHARED_H_ */
 
