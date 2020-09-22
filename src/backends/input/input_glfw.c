@@ -24,10 +24,11 @@ unsigned short input_j1 = 0;
 
 uint64 frametimer = 0; // used for analog movement via PWM
 
-int Backend_Input_MainLoop() {
-	input.pad[joynum] = 0;
+void Update_KB() {
 	input.pad[joynum] |= input_kb;
+}
 
+void Update_Joystick() {
 	int count = 0;
 	input_j1 = 0;
 
@@ -70,7 +71,6 @@ int Backend_Input_MainLoop() {
 	));
 
 
-	// intensity_lx_adj = ((intensity_lx_adj - 0) * (1 - 0.9)) / ((1 - 0) + 0.9);
 	int allow_horiz = 1;
 	if (intensity_lx_adj < 1.0) {
 		double frametimer_period = 3.0;
@@ -110,9 +110,16 @@ int Backend_Input_MainLoop() {
 	}
 
 	input.pad[joynum] |= input_j1;
+}
+
+int Backend_Input_MainLoop() {
+	input.pad[joynum] = 0;
+
+	Update_KB();
+	Update_Joystick();
 
 	frametimer++;
-
+	
 	return 1;
 }
 

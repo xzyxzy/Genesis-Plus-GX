@@ -6,30 +6,27 @@
 // #include <SDL2/SDL.h>
 // #include <SDL2/SDL_image.h>
 
-#define mQueue_0 0xEE32 // music
-#define mQueue_1 0xEE32+1 // cmd
-#define mQueue_2 0xEE32+3  // sfx ??? why +3
+#define mQueue 0xEE7C
+#define mFlags 0xEE6A+1
+#define Current_Zone 0xFB24-1
+#define Current_Act 0xFB25-1
+#define dPlaySnd 0x12EC4A
+#define Game_Mode 0xF32A+1
+#define SSTrack_anim 0xDCAA+1
+#define SS_Cur_Speed_Factor 0xDCB8-1
 
-#define mFlags 0xEE20+1
+#define mQueue_0 mQueue // music
+#define mQueue_1 mQueue+1 // cmd
+#define mQueue_2 mQueue+3  // sfx ??? why +3
+
 #define mFlags_Mask_Panning     0b00000001
 #define mFlags_Mask_SpeedShoes  0b00000010
 #define mFlags_Mask_Underwater  0b00000100
 #define mFlags_Mask_Paused      0b10000000
 
-#define Current_Zone 0xFADA-1
-#define Current_Act 0xFADB-1
-
-#define dPlaySnd 0x123C4A
-
 #define id_music_start  0x0B
 #define id_music_end    0x2A
 #define id_music_life   0x25
-
-#define Game_Mode 0xF2E0+1
-#define GameModeID_SpecialStage 0x10
-
-#define SSTrack_anim 0xDCAA+1
-#define SS_Cur_Speed_Factor 0xDCB8-1
 
 int gamehacks_overclock_enable = 1;
 

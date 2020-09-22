@@ -21,8 +21,8 @@ Bus filter_bus;
 float music_speed = 1.0;
 
 int whichchunk = 0;
-Wav chunks[CHUNK_BUFFER_SIZE][2];
-Queue chunkqueue_l, chunkqueue_r;
+Wav chunks[CHUNK_BUFFER_SIZE];
+Queue chunkqueue;
 
 BiquadResonantFilter underwaterFilter;
 
@@ -43,8 +43,7 @@ int Backend_Sound_Init() {
         2
     );
 
-    chunkqueue_l.setParams(SOUND_FREQUENCY, 1);
-    chunkqueue_r.setParams(SOUND_FREQUENCY, 1);
+    chunkqueue.setParams(SOUND_FREQUENCY, 2);
     soloud.play(filter_bus);
     underwaterFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 1000, 0);
 
@@ -53,57 +52,48 @@ int Backend_Sound_Init() {
 
 // 0 = filling, 1 = full, 2 = playback started
 int bufferstate = 0;
+int soundrecovertimer = 0;
 
-short soundframe_l[SOUND_SAMPLES_SIZE / 2];
-short soundframe_r[SOUND_SAMPLES_SIZE / 2];
+short soundframe_reordered[SOUND_SAMPLES_SIZE];
 
 int Backend_Sound_Update(int size) {
-    // So SoLoud is having really weird problems with loadRawWave16
-    // and multiple channels so lets just separate them manually
-    // and pan them
-
-    for (int i = 0; i < size / 2; i++) {
-        soundframe_l[i] = soundframe[i*2];
-        soundframe_r[i] = soundframe[(i*2)+1];
+    if (soundrecovertimer) {
+        soundrecovertimer--;
+        return 0;
     }
 
-    // Left
-    chunks[whichchunk][0].loadRawWave16(
-        soundframe_l,
-        size / 2,
-        SOUND_FREQUENCY,
-        1
-    );
+    for (int i = 0; i < size / 2; i++) {
+        soundframe_reordered[i] = soundframe[i*2];
+        soundframe_reordered[i + (size / 2)] = soundframe[(i*2)+1];
+    }
 
-    // Right
-    chunks[whichchunk][1].loadRawWave16(
-        soundframe_r,
-        size / 2,
+    chunks[whichchunk].loadRawWave16(
+        soundframe_reordered,
+        size,
         SOUND_FREQUENCY,
-        1
+        2
     );
 
     // Prevent buffer from wrapping around, if it does it causes the audio to flip out
-    if (
-        chunkqueue_l.isCurrentlyPlaying(chunks[whichchunk][0]) ||
-        chunkqueue_r.isCurrentlyPlaying(chunks[whichchunk][1])
-    ) {
-        chunkqueue_l.stop();
-        chunkqueue_r.stop();
+    if (chunkqueue.isCurrentlyPlaying(chunks[whichchunk])) {
+        chunkqueue.stop();
+        soloud.play(chunkqueue);
+        soundrecovertimer = 10;
+        whichchunk++;
+        return 0;
     }
 
-    chunkqueue_l.play(chunks[whichchunk][0]);
-    chunkqueue_r.play(chunks[whichchunk][1]);
 
+    chunkqueue.play(chunks[whichchunk]);
     whichchunk++;
+
     bufferstate |= whichchunk == CHUNK_BUFFER_SIZE - 1;
     whichchunk %= CHUNK_BUFFER_SIZE;
 
     if (!bufferstate) return 1;    
     if (bufferstate == 2) return 1;
     
-    soloud.play(chunkqueue_l,1,1);
-    soloud.play(chunkqueue_r,1,-1);
+    soloud.play(chunkqueue);
     
     bufferstate = 2;
     return 1;

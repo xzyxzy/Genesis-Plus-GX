@@ -110,14 +110,6 @@ DEFINES += \
 
 # =============================================================================
 
-# INCLUDES +=	-I./lib/libxbr
-# SOURCES +=	lib/libxbr/xbr \
-# 			lib/libxbr/hq2x \
-# 			lib/libxbr/hq3x \
-# 			lib/libxbr/hq4x
-
-# =============================================================================
-
 CFLAGS += `$(PKGCONFIG) --cflags zlib`
 LIBS   += `$(PKGCONFIG) --libs zlib`
 
