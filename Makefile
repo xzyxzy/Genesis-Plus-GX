@@ -202,6 +202,7 @@ SOURCES	+=	src/main \
 			src/ioapi \
 			src/unzip \
 			src/fileio \
+			src/ips \
 			src/gamehacks
 
 

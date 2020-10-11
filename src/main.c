@@ -210,10 +210,11 @@ int main (int argc, char **argv) {
   bitmap.viewport.changed = 3;
 
   char * rom_path = argv[1];
+  char * diff_path = argv[2];
   if (rom_path == NULL) rom_path = PATH_ROM;
 
   /* Load game file */
-  if(!load_rom(rom_path))
+  if(!load_rom(rom_path, diff_path))
   {
     char caption[256];
     sprintf(caption, "Error loading file `%s'.", rom_path);

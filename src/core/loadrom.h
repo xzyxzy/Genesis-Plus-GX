@@ -67,7 +67,7 @@ extern uint8 romtype;
 
 /* Function prototypes */
 extern int load_bios(int system);
-extern int load_rom(char *filename);
+extern int load_rom(char *filename, char *diffname);
 extern void get_region(char *romheader);
 extern char *get_company(void);
 extern char *get_peripheral(int index);

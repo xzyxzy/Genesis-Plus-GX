@@ -40,6 +40,8 @@
 #include <ctype.h>
 #include "shared.h"
 
+#include "ips.h"
+
 /*** ROM Information ***/
 #define ROMCONSOLE    256
 #define ROMCOPYRIGHT  272
@@ -544,7 +546,7 @@ int load_bios(int system)
  * Return 0 on error, 1 on success
  *
  ***************************************************************************/
-int load_rom(char *filename)
+int load_rom(char *filename, char *diffname)
 {
   int i, size;
 
@@ -590,6 +592,18 @@ int load_rom(char *filename)
     /* load file into ROM buffer */
     char extension[4];
     size = load_archive(filename, cart.rom, cdd.loaded ? 0x800000 : MAXROMSIZE, extension);
+
+    if (diffname != NULL) {
+        printf("%s\n", diffname);
+        char patch_extension[4];
+        uint8 *patch_buffer = malloc(MAXROMSIZE);
+        int size_patch = load_archive(diffname, patch_buffer, MAXROMSIZE, patch_extension);
+        size = ips_patch(
+          cart.rom, MAXROMSIZE,
+          patch_buffer, size_patch
+        );
+        free(patch_buffer);
+    }
 
     /* mark BOOTROM as unloaded if they have been overwritten by cartridge ROM */
     if (size > 0x800000)
