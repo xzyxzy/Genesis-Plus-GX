@@ -3,8 +3,10 @@
 
 #if defined(__vita__)
 #define PATH_ROM "ux0:rom.bin"
+#define PATH_PATCH "ux0:patch.ips"
 #else
 #define PATH_ROM "./rom.bin"
+#define PATH_PATCH "./patch.ips"
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -212,6 +214,7 @@ int main (int argc, char **argv) {
   char * rom_path = argv[1];
   char * diff_path = argv[2];
   if (rom_path == NULL) rom_path = PATH_ROM;
+  if (diff_path == NULL) diff_path = PATH_PATCH;
 
   /* Load game file */
   if(!load_rom(rom_path, diff_path))
@@ -309,7 +312,7 @@ int main (int argc, char **argv) {
 
   /* emulation loop */
   #ifdef __EMSCRIPTEN__
-   emscripten_set_main_loop(&mainloop, 60, 1);
+   emscripten_set_main_loop(&mainloop, 0, 1);
   #else
     while(running) {
       mainloop();

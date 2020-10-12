@@ -70,7 +70,7 @@ char *Load_Text_File(char *path) {
   return buffer;
 }
 
-GLuint Shader_Compile(char *shader_source, GLuint shader_type) {
+GLuint Shader_Compile(const GLchar *shader_source, GLuint shader_type) {
   GLuint shader = glCreateShader(shader_type);
   glShaderSource(shader, 1, &shader_source, NULL);
   glCompileShader(shader);

@@ -596,12 +596,14 @@ int load_rom(char *filename, char *diffname)
     if (diffname != NULL) {
         printf("%s\n", diffname);
         char patch_extension[4];
-        uint8 *patch_buffer = malloc(MAXROMSIZE);
-        int size_patch = load_archive(diffname, patch_buffer, MAXROMSIZE, patch_extension);
-        size = ips_patch(
-          cart.rom, MAXROMSIZE,
-          patch_buffer, size_patch
-        );
+        char *patch_buffer = (char *)malloc(MAXROMSIZE);
+        int size_patch = load_archive(diffname, (uint8 *)patch_buffer, MAXROMSIZE, patch_extension);
+        if (size_patch) {
+          size = ips_patch(
+            (char *)cart.rom, MAXROMSIZE,
+            patch_buffer, size_patch
+          );
+        }
         free(patch_buffer);
     }
 
