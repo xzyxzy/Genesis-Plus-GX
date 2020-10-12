@@ -3,6 +3,7 @@
 #include <cstring>
 #include <string>
 #include <map>
+#include <vorbis/vorbisfile.h>
 #include "soloud.h"
 #include "soloud_wav.h"
 #include "soloud_wavstream.h"
@@ -83,7 +84,6 @@ int Backend_Sound_Update(int size) {
         return 0;
     }
 
-
     chunkqueue.play(chunks[whichchunk]);
     whichchunk++;
 
@@ -102,10 +102,37 @@ int Backend_Sound_Update(int size) {
 int Backend_Sound_PlayMusic(char *path) {
     music.stop();
 
+    // I tried reusing OggVorbis_File's fp before but I think DiskFile in SoLoud is fucked up
+    // Oh well!
     if (music.load(path) != 0) {
         printf("Unable to load Ogg file: %s\n", path);
         return 0;
     }
+
+    music.setLooping(1);
+
+    OggVorbis_File music_ogg;
+    ov_fopen(path, &music_ogg);
+    vorbis_comment *music_comments = ov_comment(&music_ogg, -1);
+
+    // printf("%i\n",music_comments->comments);
+    for (int i = 0; i < music_comments->comments; i++) {
+        int comment_length = music_comments->comment_lengths[i];
+        char *comment_line = music_comments->user_comments[i];
+        char *comment_key = strtok(comment_line, "=");
+        char *comment_value = strtok(NULL, "=");
+
+        if (!strcmp(comment_key, "LOOPSTART")) {
+            double loopstart = strtod(comment_value, NULL);
+            if (loopstart == 0) {
+                music.setLooping(0);
+            } else {
+                music.setLoopPoint(loopstart);
+            }
+        }
+    }
+
+    ov_clear(&music_ogg);
 
     music_handle = filter_bus.play(music, 1);
     soloud.setRelativePlaySpeed(music_handle, music_speed);

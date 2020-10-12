@@ -594,7 +594,6 @@ int load_rom(char *filename, char *diffname)
     size = load_archive(filename, cart.rom, cdd.loaded ? 0x800000 : MAXROMSIZE, extension);
 
     if (diffname != NULL) {
-        printf("%s\n", diffname);
         char patch_extension[4];
         char *patch_buffer = (char *)malloc(MAXROMSIZE);
         int size_patch = load_archive(diffname, (uint8 *)patch_buffer, MAXROMSIZE, patch_extension);
