@@ -115,7 +115,6 @@ int Backend_Sound_PlayMusic(char *path) {
     ov_fopen(path, &music_ogg);
     vorbis_comment *music_comments = ov_comment(&music_ogg, -1);
 
-    // printf("%i\n",music_comments->comments);
     for (int i = 0; i < music_comments->comments; i++) {
         int comment_length = music_comments->comment_lengths[i];
         char *comment_line = music_comments->user_comments[i];
