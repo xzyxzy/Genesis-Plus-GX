@@ -3,9 +3,6 @@
 #include "backends/video/video_base.h"
 #include "cpuhook.h"
 
-// #include <SDL2/SDL.h>
-// #include <SDL2/SDL_image.h>
-
 #define mQueue 0xEE7C
 #define mFlags 0xEE6A+1
 #define Current_Zone 0xFB24-1
@@ -23,65 +20,98 @@
 #define mFlags_Mask_SpeedShoes  0b00000010
 #define mFlags_Mask_Underwater  0b00000100
 #define mFlags_Mask_Paused      0b10000000
+#define mFlags_Mask_BackedUp    0b00010000
 
 #define id_music_start  0x0B
 #define id_music_end    0x2A
 #define id_music_life   0x25
 
-int gamehacks_overclock_enable = 1;
+#define ID_CMD_NULL     0
+#define ID_CMD_STOP     3
 
 int gamehacks_play_sfx(int id) {
     if (id == 0) return 0;
 
+    // This literally should never be an issue unless the path is changed below
+    // Actually to make double sure I should probably change ID to a char
     char *path = (char *)malloc((100)*sizeof(char));
 
+    // This is pretty much exclusively used for ring panning
     sprintf(path, "./gamehacks/sfx/%x_%s.wav",
         id,
         work_ram[mFlags] & mFlags_Mask_Panning ? "r" : "l"
     );
-
-    if (Backend_Sound_PlaySFX(path)) return 0;
+    if (Backend_Sound_PlaySFX(path)) return ID_CMD_NULL;
     
+    // This is the part for literally every other sound effect
     sprintf(path, "./gamehacks/sfx/%x.wav", id);
-    if (Backend_Sound_PlaySFX(path)) return 0;
+    if (Backend_Sound_PlaySFX(path)) return ID_CMD_NULL;
     
     return id;
 }
 
 int gamehacks_play_music_path(char *path) {
     Backend_Sound_StopMusic();
-    if (!Backend_Sound_PlayMusic(path)) return 0;
-    return 3;
+    if (!Backend_Sound_PlayMusic(path)) return ID_CMD_NULL;
+    return ID_CMD_STOP;
 }
 
-int gamehacks_play_music(int id) {
-    if (id == 0) return 0;
+int music_id_backup;
+int music_id_current;
+int music_playing_1up_file;
 
+int gamehacks_play_music(int id) {
+    if (id == 0) return ID_CMD_NULL;
+
+    // Gotta love 1-up track edge cases
+    if (id == id_music_life) {
+        music_id_backup = music_id_current;
+        music_playing_1up_file = 1;
+    } else if (music_id_current == id_music_life) {
+        music_id_backup = id;
+        return ID_CMD_NULL;
+    }
+    music_id_current = id;
+
+    // This shouldn't be a problem unless the act or track ID is fucking
+    // massive, in which case it'll then be a big problem
     char *path = (char *)malloc((80+1)*sizeof(char));
 
+    // Attempt to play per-act track
     sprintf(
         path,
         "./gamehacks/music/%x_%i.ogg",
         id,
         work_ram[Current_Act] + 1
     );
-    if (Backend_Sound_PlayMusic(path)) return 3;
+    // Return music stop command
+    if (Backend_Sound_PlayMusic(path)) return ID_CMD_STOP;
     
+    // If it wasn't found, play the normal track
     sprintf(
         path,
         "./gamehacks/music/%x.ogg",
         id
     );
-    if (Backend_Sound_PlayMusic(path)) return 3;
+    // Return music stop command
+    if (Backend_Sound_PlayMusic(path)) return ID_CMD_STOP;
     
+    // Welp, couldn't find anything.
+    // Return the ID as it'll be passed back through to the game
+    music_playing_1up_file = 0;
     return id;
 }
 
 int gamehacks_play_command(int id) {
-    if (id == 0) return 0;
-
-    if (id == 2) Backend_Sound_FadeOutMusic(750);
-    return id;
+    // I think I need to finish implementing commands
+    switch (id) {
+        case 0:
+            return ID_CMD_NULL;
+        case 2:
+            Backend_Sound_FadeOutMusic(750);
+        default:        
+            return id;
+    }
 }
 
 int gamehacks_play_sound(int id) {
@@ -91,6 +121,21 @@ int gamehacks_play_sound(int id) {
 }
 
 void gamehacks_update_sound() {
+    if (music_playing_1up_file) {
+        if (!Backend_Sound_IsPlayingMusic()) {
+            music_playing_1up_file = 0;
+            music_id_current = 0;
+            int music_id_tmp = music_id_backup;
+            music_id_backup = 0;
+            gamehacks_play_music(music_id_tmp);
+        }
+    } else if (!(work_ram[mFlags] & mFlags_Mask_BackedUp) && music_id_backup) {
+        music_id_current = 0;
+        int music_id_tmp = music_id_backup;
+        music_id_backup = 0;
+        gamehacks_play_music(music_id_tmp);
+    }
+
     work_ram[mQueue_0] = gamehacks_play_sound(work_ram[mQueue_0]);
     work_ram[mQueue_1] = gamehacks_play_sound(work_ram[mQueue_1]);
     work_ram[mQueue_2] = gamehacks_play_sound(work_ram[mQueue_2]);
@@ -107,15 +152,9 @@ void gamehacks_update() {
     gamehacks_update_sound();
 }
 
-void gamehacks_deinit() { }
-
-// void gamehacks_cpuhook(hook_type_t type, int width, unsigned int address, unsigned int value) {
-//     if (address == dPlaySnd) {
-//         work_ram[mQueue_0] = gamehacks_play_sound(work_ram[mQueue_0]);
-//         work_ram[mQueue_1] = gamehacks_play_sound(work_ram[mQueue_1]);
-//         work_ram[mQueue_2] = gamehacks_play_sound(work_ram[mQueue_2]);
-//     }
-// }
+void gamehacks_deinit() {
+    // This might end up getting used for the special stage stuff
+}
 
 // SDL_Texture *ss_track;
 // SDL_Texture *ss_bg;
@@ -160,12 +199,12 @@ void gamehacks_render_ss_track() {
 }
 
 void gamehacks_render_ss_bg() {
-    uint16 bg_xscroll      = (*(uint32 *)&vram[hscb]) >> 16;
+    uint16 bg_xscroll = (*(uint32 *)&vram[hscb]) >> 16;
     bg_xscroll %= 256;
     bg_xscroll = 256 - bg_xscroll;
     bg_xscroll += 184;
     // ss_bg_src.x = bg_xscroll;
-    uint16 bg_yscroll      = (*(uint32 *)&vsram[0])   >> 16;
+    uint16 bg_yscroll = (*(uint32 *)&vsram[0]) >> 16;
     bg_yscroll  &= 0x0FF;
     bg_yscroll %= 256;
     // ss_bg_src.y = bg_yscroll;

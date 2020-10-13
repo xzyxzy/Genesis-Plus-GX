@@ -99,8 +99,12 @@ int Backend_Sound_Update(int size) {
     return 1;
 }
 
+int Backend_Sound_IsPlayingMusic() {
+    return soloud.isValidVoiceHandle(music_handle);
+}
+
 int Backend_Sound_PlayMusic(char *path) {
-    music.stop();
+    if (Backend_Sound_IsPlayingMusic()) music.stop();
 
     // I tried reusing OggVorbis_File's fp before but I think DiskFile in SoLoud is fucked up
     // Oh well!
@@ -109,7 +113,7 @@ int Backend_Sound_PlayMusic(char *path) {
         return 0;
     }
 
-    music.setLooping(1);
+    // music.setLooping(1);
 
     OggVorbis_File music_ogg;
     ov_fopen(path, &music_ogg);
@@ -123,7 +127,7 @@ int Backend_Sound_PlayMusic(char *path) {
 
         if (!strcmp(comment_key, "LOOPSTART")) {
             double loopstart = strtod(comment_value, NULL);
-            if (loopstart == 0) {
+            if (loopstart < 0) {
                 music.setLooping(0);
             } else {
                 music.setLoopPoint(loopstart);

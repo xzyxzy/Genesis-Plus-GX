@@ -16,6 +16,7 @@ int Backend_Sound_Update(int size);
 int Backend_Sound_Close();
 
 int Backend_Sound_PlayMusic(char *path);
+int Backend_Sound_IsPlayingMusic();
 int Backend_Sound_StopMusic();
 int Backend_Sound_FadeOutMusic(int fadeTime);
 int Backend_Sound_MusicSpeed(float speed);
