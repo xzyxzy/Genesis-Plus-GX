@@ -86,7 +86,7 @@ void m68k_lockup_w_8 (unsigned int address, unsigned int data)
 #ifdef LOGERROR
   error ("Lockup %08X = %02X (%08X)\n", address, data, m68k_get_reg(M68K_REG_PC));
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     m68k_pulse_halt();
     m68k.cycles = m68k.cycle_end;
@@ -98,7 +98,7 @@ void m68k_lockup_w_16 (unsigned int address, unsigned int data)
 #ifdef LOGERROR
   error ("Lockup %08X = %04X (%08X)\n", address, data, m68k_get_reg(M68K_REG_PC));
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     m68k_pulse_halt();
     m68k.cycles = m68k.cycle_end;
@@ -110,7 +110,7 @@ unsigned int m68k_lockup_r_8 (unsigned int address)
 #ifdef LOGERROR
   error ("Lockup %08X.b (%08X)\n", address, m68k_get_reg(M68K_REG_PC));
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     m68k_pulse_halt();
     m68k.cycles = m68k.cycle_end;
@@ -124,7 +124,7 @@ unsigned int m68k_lockup_r_16 (unsigned int address)
 #ifdef LOGERROR
   error ("Lockup %08X.w (%08X)\n", address, m68k_get_reg(M68K_REG_PC));
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     m68k_pulse_halt();
     m68k.cycles = m68k.cycle_end;
@@ -413,7 +413,7 @@ unsigned int ctrl_io_read_byte(unsigned int address)
 
     case 0x41:  /* BOOT ROM */
     {
-      if ((config.bios & 1) && (address & 1))
+      if ((config_legacy.bios & 1) && (address & 1))
       {
         unsigned int data = gen_bankswitch_r() & 1;
 
@@ -850,7 +850,7 @@ void ctrl_io_write_byte(unsigned int address, unsigned int data)
 
     case 0x41:  /* BOOT ROM */
     {
-      if ((config.bios & 1) && (address & 1))
+      if ((config_legacy.bios & 1) && (address & 1))
       {
         gen_bankswitch_w(data & 1);
         return;
@@ -1085,7 +1085,7 @@ void ctrl_io_write_word(unsigned int address, unsigned int data)
 
     case 0x40:  /* TMSS */
     {
-      if (config.bios & 1)
+      if (config_legacy.bios & 1)
       {
         gen_tmss_w(address & 3, data);
         return;

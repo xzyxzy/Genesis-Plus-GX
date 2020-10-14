@@ -68,7 +68,7 @@ INLINE void z80_lockup_w(unsigned int address, unsigned char data)
 #ifdef LOGERROR
   error("Z80 lockup write %04X = %02X (%x)\n", address, data, Z80.pc.w.l);
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     Z80.cycles = 0xFFFFFFFF;
     zstate = 0;
@@ -80,7 +80,7 @@ INLINE unsigned char z80_lockup_r(unsigned int address)
 #ifdef LOGERROR
   error("Z80 lockup read %04X (%x)\n", address, Z80.pc.w.l);
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     Z80.cycles = 0xFFFFFFFF;
     zstate = 0;
@@ -253,7 +253,7 @@ void z80_md_port_w(unsigned int port, unsigned char data)
       port &= 0xFF;
 
       /* write FM chip if enabled */
-      if ((port >= 0xF0) && (config.ym2413 & 1))
+      if ((port >= 0xF0) && (config_legacy.ym2413 & 1))
       {
         fm_write(Z80.cycles, port, data);
         return;
@@ -299,7 +299,7 @@ unsigned char z80_md_port_r(unsigned int port)
       }
 
       /* read FM chip if enabled */
-      if ((port >= 0xF0) && (config.ym2413 & 1))
+      if ((port >= 0xF0) && (config_legacy.ym2413 & 1))
       {
         return fm_read(Z80.cycles, port);
       }
@@ -470,7 +470,7 @@ void z80_ms_port_w(unsigned int port, unsigned char data)
     default:
     {
       /* check if YM2413 chip is enabled */
-      if (config.ym2413 & 1)
+      if (config_legacy.ym2413 & 1)
       {
         if (region_code == REGION_JAPAN_NTSC)
         {
@@ -494,7 +494,7 @@ void z80_ms_port_w(unsigned int port, unsigned char data)
                 1  0 : disable both PSG & FM output
                 1  1 : enable both PSG and FM output
             */
-            psg_config(Z80.cycles, config.psg_preamp, ((data + 1) & 0x02) ? 0x00 : 0xFF);
+            psg_config(Z80.cycles, config_legacy.psg_preamp, ((data + 1) & 0x02) ? 0x00 : 0xFF);
             fm_write(Z80.cycles, 0x02, data);
             io_reg[6] = data;
             return;
@@ -577,7 +577,7 @@ unsigned char z80_ms_port_r(unsigned int port)
         uint8 data = 0xFF;
 
         /* read FM board if enabled */
-        if (!(port & 4) && (config.ym2413 & 1))
+        if (!(port & 4) && (config_legacy.ym2413 & 1))
         {
           data = fm_read(Z80.cycles, port);
         }
@@ -631,7 +631,7 @@ void z80_m3_port_w(unsigned int port, unsigned char data)
     default:
     {
       /* write FM chip if enabled */
-      if (!(port & 4) && (config.ym2413 & 1))
+      if (!(port & 4) && (config_legacy.ym2413 & 1))
       {
         fm_write(Z80.cycles, port, data);
         return;
@@ -676,7 +676,7 @@ unsigned char z80_m3_port_r(unsigned int port)
     default:
     {
       /* read FM chip if enabled */
-      if (!(port & 4) && (config.ym2413 & 1))
+      if (!(port & 4) && (config_legacy.ym2413 & 1))
       {
         /* I/O ports are automatically disabled by hardware */
         return fm_read(Z80.cycles, port);

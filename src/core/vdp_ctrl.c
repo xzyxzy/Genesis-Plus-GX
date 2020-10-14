@@ -324,16 +324,16 @@ void vdp_reset(void)
   fifo_timing = (int *)fifo_timing_h32;
 
   /* default overscan area */
-  if ((system_hw == SYSTEM_GG) && !config.gg_extra)
+  if ((system_hw == SYSTEM_GG) && !config_legacy.gg_extra)
   {
     /* Display area reduced to 160x144 if overscan is disabled */
-    bitmap.viewport.x = (config.overscan & 2) ? 14 : -48;
-    bitmap.viewport.y = (config.overscan & 1) ? (24 * (vdp_pal + 1)) : -24;
+    bitmap.viewport.x = (config_legacy.overscan & 2) ? 14 : -48;
+    bitmap.viewport.y = (config_legacy.overscan & 1) ? (24 * (vdp_pal + 1)) : -24;
   }
   else
   {
-    bitmap.viewport.x = (config.overscan & 2) * 7;
-    bitmap.viewport.y = (config.overscan & 1) * 24 * (vdp_pal + 1);
+    bitmap.viewport.x = (config_legacy.overscan & 2) * 7;
+    bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * (vdp_pal + 1);
   }
 
   /* default rendering mode */
@@ -401,7 +401,7 @@ void vdp_reset(void)
   reg[10] = 0xFF;
   
   /* Master System specific */
-  if ((system_hw & SYSTEM_SMS) && (!(config.bios & 1) || !(system_bios & SYSTEM_SMS)))
+  if ((system_hw & SYSTEM_SMS) && (!(config_legacy.bios & 1) || !(system_bios & SYSTEM_SMS)))
   {
     /* force registers initialization (normally done by BOOT ROM on all Master System models) */
     vdp_reg_w(0 , 0x36, 0);
@@ -419,7 +419,7 @@ void vdp_reset(void)
   }
 
   /* Mega Drive specific */
-  else if (((system_hw == SYSTEM_MD) || (system_hw == SYSTEM_MCD)) && (config.bios & 1) && !(system_bios & SYSTEM_MD))
+  else if (((system_hw == SYSTEM_MD) || (system_hw == SYSTEM_MCD)) && (config_legacy.bios & 1) && !(system_bios & SYSTEM_MD))
   {
     /* force registers initialization (normally done by BOOT ROM, only on Mega Drive model with TMSS) */
     vdp_reg_w(0 , 0x04, 0);

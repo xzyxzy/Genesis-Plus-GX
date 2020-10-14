@@ -171,11 +171,11 @@ void audio_reset(void)
 
 void audio_set_equalizer(void)
 {
-  init_3band_state(&eq[0],config.low_freq,config.high_freq,snd.sample_rate);
-  init_3band_state(&eq[1],config.low_freq,config.high_freq,snd.sample_rate);
-  eq[0].lg = eq[1].lg = (double)(config.lg) / 100.0;
-  eq[0].mg = eq[1].mg = (double)(config.mg) / 100.0;
-  eq[0].hg = eq[1].hg = (double)(config.hg) / 100.0;
+  init_3band_state(&eq[0],config_legacy.low_freq,config_legacy.high_freq,snd.sample_rate);
+  init_3band_state(&eq[1],config_legacy.low_freq,config_legacy.high_freq,snd.sample_rate);
+  eq[0].lg = eq[1].lg = (double)(config_legacy.lg) / 100.0;
+  eq[0].mg = eq[1].mg = (double)(config_legacy.mg) / 100.0;
+  eq[0].hg = eq[1].hg = (double)(config_legacy.hg) / 100.0;
 }
 
 void audio_shutdown(void)
@@ -224,16 +224,16 @@ int audio_update(int16 *buffer)
   }
 
   /* Audio filtering */
-  if (config.filter)
+  if (config_legacy.filter)
   {
     int samples = size;
     int16 *out = buffer;
     int32 l, r;
 
-    if (config.filter & 1)
+    if (config_legacy.filter & 1)
     {
       /* single-pole low-pass filter (6 dB/octave) */
-      uint32 factora  = config.lp_range;
+      uint32 factora  = config_legacy.lp_range;
       uint32 factorb  = 0x10000 - factora;
 
       /* restore previous sample */
@@ -260,7 +260,7 @@ int audio_update(int16 *buffer)
       llp = l;
       rrp = r;
     }
-    else if (config.filter & 2)
+    else if (config_legacy.filter & 2)
     {
       do
       {
@@ -283,7 +283,7 @@ int audio_update(int16 *buffer)
   }
 
   /* Mono output mixing */
-  if (config.mono)
+  if (config_legacy.mono)
   {
     int16 out;
     int samples = size;
@@ -384,20 +384,20 @@ void system_frame_gen(int do_skip)
       {
         /* 240 active lines */
         bitmap.viewport.h = 240;
-        bitmap.viewport.y = (config.overscan & 1) * 24 * vdp_pal;
+        bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * vdp_pal;
       }
       else
       {
         /* 224 active lines */
         bitmap.viewport.h = 224;
-        bitmap.viewport.y = (config.overscan & 1) * (8 + (24 * vdp_pal));
+        bitmap.viewport.y = (config_legacy.overscan & 1) * (8 + (24 * vdp_pal));
       }
     }
     else
     {
       /* Mode 4 (192 active lines) */
       bitmap.viewport.h = 192;
-      bitmap.viewport.y = (config.overscan & 1) * 24 * (vdp_pal + 1);
+      bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * (vdp_pal + 1);
     }
 
     /* active screen width */
@@ -730,20 +730,20 @@ void system_frame_scd(int do_skip)
       {
         /* 240 active lines */
         bitmap.viewport.h = 240;
-        bitmap.viewport.y = (config.overscan & 1) * 24 * vdp_pal;
+        bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * vdp_pal;
       }
       else
       {
         /* 224 active lines */
         bitmap.viewport.h = 224;
-        bitmap.viewport.y = (config.overscan & 1) * (8 + (24 * vdp_pal));
+        bitmap.viewport.y = (config_legacy.overscan & 1) * (8 + (24 * vdp_pal));
       }
     }
     else
     {
       /* Mode 4 (192 active lines) */
       bitmap.viewport.h = 192;
-      bitmap.viewport.y = (config.overscan & 1) * 24 * (vdp_pal + 1);
+      bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * (vdp_pal + 1);
     }
 
     /* active screen width */
@@ -1052,19 +1052,19 @@ void system_frame_sms(int do_skip)
         {
           /* 240 active lines */
           bitmap.viewport.h = 240;
-          bitmap.viewport.y = (config.overscan & 1) * 24 * vdp_pal;
+          bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * vdp_pal;
         }
         else
         {
           /* 224 active lines */
           bitmap.viewport.h = 224;
-          bitmap.viewport.y = (config.overscan & 1) * (8 + (24 * vdp_pal));
+          bitmap.viewport.y = (config_legacy.overscan & 1) * (8 + (24 * vdp_pal));
         }
       }
       else
       {
         bitmap.viewport.h = 192;
-        bitmap.viewport.y = (config.overscan & 1) * 24 * (vdp_pal + 1);
+        bitmap.viewport.y = (config_legacy.overscan & 1) * 24 * (vdp_pal + 1);
       }
     }
     else
@@ -1087,13 +1087,13 @@ void system_frame_sms(int do_skip)
       }
 
       /* update vertical overscan */
-      if (config.overscan & 1)
+      if (config_legacy.overscan & 1)
       {
         bitmap.viewport.y = (240 + 48*vdp_pal - bitmap.viewport.h) >> 1;
       }
       else
       {
-        if ((system_hw == SYSTEM_GG) && !config.gg_extra)
+        if ((system_hw == SYSTEM_GG) && !config_legacy.gg_extra)
         {
           /* Display area reduced to 160x144 */
           bitmap.viewport.y = (144 - bitmap.viewport.h) / 2;

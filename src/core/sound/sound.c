@@ -118,7 +118,7 @@ static void YM2612_Write(unsigned int cycles, unsigned int a, unsigned int v)
     fm_update(cycles);
 
     /* set FM BUSY end cycle (discrete or ASIC-integrated YM2612 chip only) */
-    if (config.ym2612 < YM2612_ENHANCED)
+    if (config_legacy.ym2612 < YM2612_ENHANCED)
     {
       fm_cycles_busy = (((cycles + YM2612_CLOCK_RATIO - 1) / YM2612_CLOCK_RATIO) + 32) * YM2612_CLOCK_RATIO;
     }
@@ -131,7 +131,7 @@ static void YM2612_Write(unsigned int cycles, unsigned int a, unsigned int v)
 static unsigned int YM2612_Read(unsigned int cycles, unsigned int a)
 {
   /* FM status can only be read from (A0,A1)=(0,0) on discrete YM2612 */
-  if ((a == 0) || (config.ym2612 > YM2612_DISCRETE))
+  if ((a == 0) || (config_legacy.ym2612 > YM2612_DISCRETE))
   {
     /* synchronize FM chip with CPU */
     fm_update(cycles);
@@ -291,7 +291,7 @@ void sound_init( void )
   {
     /* YM2612 */
 #ifdef HAVE_YM3438_CORE
-    if (config.ym3438)
+    if (config_legacy.ym3438)
     {
       /* Nuked OPN2 */
       memset(&ym3438, 0, sizeof(ym3438));
@@ -310,7 +310,7 @@ void sound_init( void )
     {
       /* MAME OPN2*/
       YM2612Init();
-      YM2612Config(config.ym2612);
+      YM2612Config(config_legacy.ym2612);
       YM_Update = YM2612Update;
       fm_reset = YM2612_Reset;
       fm_write = YM2612_Write;
@@ -324,14 +324,14 @@ void sound_init( void )
   {
     /* YM2413 */
 #ifdef HAVE_OPLL_CORE
-    if (config.opll)
+    if (config_legacy.opll)
     {
       /* Nuked OPLL */
       memset(&opll, 0, sizeof(opll));
       memset(&opll_accm, 0, sizeof(opll_accm));
       opll_sample = 0;
       opll_status = 0;
-      YM_Update = (config.ym2413 & 1) ? OPLL2413_Update : NULL;
+      YM_Update = (config_legacy.ym2413 & 1) ? OPLL2413_Update : NULL;
       fm_reset = OPLL2413_Reset;
       fm_write = OPLL2413_Write;
       fm_read = OPLL2413_Read;
@@ -343,7 +343,7 @@ void sound_init( void )
 #endif
     {
       YM2413Init();
-      YM_Update = (config.ym2413 & 1) ? YM2413Update : NULL;
+      YM_Update = (config_legacy.ym2413 & 1) ? YM2413Update : NULL;
       fm_reset = YM2413_Reset;
       fm_write = YM2413_Write;
       fm_read = YM2413_Read;
@@ -362,7 +362,7 @@ void sound_reset(void)
   /* reset sound chips */
   fm_reset(0);
   psg_reset();
-  psg_config(0, config.psg_preamp, 0xff);
+  psg_config(0, config_legacy.psg_preamp, 0xff);
 
   /* reset FM buffer ouput */
   fm_last[0] = fm_last[1] = 0;
@@ -388,7 +388,7 @@ int sound_update(unsigned int cycles)
     fm_update(cycles);
 
     /* FM output pre-amplification */
-    preamp = config.fm_preamp;
+    preamp = config_legacy.fm_preamp;
 
     /* FM frame initial timestamp */
     time = fm_cycles_start;
@@ -401,7 +401,7 @@ int sound_update(unsigned int cycles)
     ptr = fm_buffer;
 
     /* flush FM samples */
-    if (config.hq_fm)
+    if (config_legacy.hq_fm)
     {
       /* high-quality Band-Limited synthesis */
       do
@@ -469,8 +469,8 @@ int sound_context_save(uint8 *state)
   if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
   {
 #ifdef HAVE_YM3438_CORE
-    save_param(&config.ym3438, sizeof(config.ym3438));
-    if (config.ym3438)
+    save_param(&config_legacy.ym3438, sizeof(config_legacy.ym3438));
+    if (config_legacy.ym3438)
     {
       save_param(&ym3438, sizeof(ym3438));
       save_param(&ym3438_accm, sizeof(ym3438_accm));
@@ -479,7 +479,7 @@ int sound_context_save(uint8 *state)
     }
     else
     {
-      bufferptr += YM2612SaveContext(state + sizeof(config.ym3438));
+      bufferptr += YM2612SaveContext(state + sizeof(config_legacy.ym3438));
     }
 #else
     bufferptr = YM2612SaveContext(state);
@@ -488,8 +488,8 @@ int sound_context_save(uint8 *state)
   else
   {
 #ifdef HAVE_YM3438_CORE
-    save_param(&config.opll, sizeof(config.opll));
-    if (config.opll)
+    save_param(&config_legacy.opll, sizeof(config_legacy.opll));
+    if (config_legacy.opll)
     {
       save_param(&opll, sizeof(opll));
       save_param(&opll_accm, sizeof(opll_accm));

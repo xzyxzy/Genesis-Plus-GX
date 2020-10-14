@@ -782,7 +782,7 @@ int load_rom(char *filename, char *diffname)
            (strstr(rominfo.product,"T-5740") != NULL))
   {
     /* check if console hardware is set to AUTO */
-    if (!config.system)
+    if (!config_legacy.system)
     {
       /* try to load CD BOOTROM */
       if (load_bios(SYSTEM_MCD))
@@ -806,7 +806,7 @@ int load_rom(char *filename, char *diffname)
   }
 
   /* Force system hardware if requested */
-  if (config.system == SYSTEM_MD)
+  if (config_legacy.system == SYSTEM_MD)
   {
     if (!(system_hw & SYSTEM_MD))
     {
@@ -814,7 +814,7 @@ int load_rom(char *filename, char *diffname)
       system_hw = SYSTEM_PBC;
     }
   }
-  else if (config.system == SYSTEM_GG)
+  else if (config_legacy.system == SYSTEM_GG)
   {
     if (system_hw != SYSTEM_GG)
     {
@@ -822,9 +822,9 @@ int load_rom(char *filename, char *diffname)
       system_hw = SYSTEM_GGMS;
     }
   }
-  else if (config.system)
+  else if (config_legacy.system)
   {
-    system_hw = config.system;
+    system_hw = config_legacy.system;
   }
 
   /* restore previous input settings */
@@ -1119,10 +1119,10 @@ void get_region(char *romheader)
   }
   
   /* force console region if requested */
-  if (config.region_detect == 1) region_code = REGION_USA;
-  else if (config.region_detect == 2) region_code = REGION_EUROPE;
-  else if (config.region_detect == 3) region_code = REGION_JAPAN_NTSC;
-  else if (config.region_detect == 4) region_code = REGION_JAPAN_PAL;
+  if (config_legacy.region_detect == 1) region_code = REGION_USA;
+  else if (config_legacy.region_detect == 2) region_code = REGION_EUROPE;
+  else if (config_legacy.region_detect == 3) region_code = REGION_JAPAN_NTSC;
+  else if (config_legacy.region_detect == 4) region_code = REGION_JAPAN_PAL;
 
   /* autodetect PAL/NTSC timings */
   vdp_pal = (region_code >> 6) & 0x01;
@@ -1131,12 +1131,12 @@ void get_region(char *romheader)
   system_clock = vdp_pal ? MCLOCK_PAL : MCLOCK_NTSC;
 
   /* force PAL/NTSC timings if requested */
-  if (config.vdp_mode == 1) vdp_pal = 0;
-  else if (config.vdp_mode == 2) vdp_pal = 1;
+  if (config_legacy.vdp_mode == 1) vdp_pal = 0;
+  else if (config_legacy.vdp_mode == 2) vdp_pal = 1;
 
   /* force PAL/NTSC master clock if requested */
-  if (config.master_clock == 1) system_clock = MCLOCK_NTSC;
-  else if (config.master_clock == 2) system_clock = MCLOCK_PAL;
+  if (config_legacy.master_clock == 1) system_clock = MCLOCK_NTSC;
+  else if (config_legacy.master_clock == 2) system_clock = MCLOCK_PAL;
 }
 
 /****************************************************************************

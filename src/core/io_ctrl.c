@@ -278,7 +278,7 @@ void io_reset(void)
   /* Reset I/O registers */
   if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
   {
-    io_reg[0x00] = region_code | (config.bios & 1);
+    io_reg[0x00] = region_code | (config_legacy.bios & 1);
     io_reg[0x01] = 0x00;
     io_reg[0x02] = 0x00;
     io_reg[0x03] = 0x00;
@@ -623,7 +623,7 @@ void io_gg_write(unsigned int offset, unsigned int data)
 
     case 6: /* PSG Stereo output control */
       io_reg[6] = data;
-      psg_config(Z80.cycles, config.psg_preamp, data);
+      psg_config(Z80.cycles, config_legacy.psg_preamp, data);
       return;
 
     default: /* Read-only */

@@ -59,7 +59,7 @@ typedef struct
 } t_config;
 
 /* Global variables */
-extern t_config config;
+extern t_config config_legacy;
 extern void set_config_defaults(void);
 
 #endif /* _CONFIG_H_ */

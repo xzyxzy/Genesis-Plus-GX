@@ -45,10 +45,10 @@
 
 #ifdef HAVE_NO_SPRITE_LIMIT
 #define MAX_SPRITES_PER_LINE 80
-#define TMS_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 4)
-#define MODE4_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 8)
-#define MODE5_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : (bitmap.viewport.w >> 4))
-#define MODE5_MAX_SPRITE_PIXELS (config.no_sprite_limit ? MAX_SPRITES_PER_LINE * 32 : max_sprite_pixels)
+#define TMS_MAX_SPRITES_PER_LINE (config_legacy.no_sprite_limit ? MAX_SPRITES_PER_LINE : 4)
+#define MODE4_MAX_SPRITES_PER_LINE (config_legacy.no_sprite_limit ? MAX_SPRITES_PER_LINE : 8)
+#define MODE5_MAX_SPRITES_PER_LINE (config_legacy.no_sprite_limit ? MAX_SPRITES_PER_LINE : (bitmap.viewport.w >> 4))
+#define MODE5_MAX_SPRITE_PIXELS (config_legacy.no_sprite_limit ? MAX_SPRITES_PER_LINE * 32 : max_sprite_pixels)
 #else
 #define MAX_SPRITES_PER_LINE 20
 #define TMS_MAX_SPRITES_PER_LINE 4
@@ -3052,7 +3052,7 @@ void render_obj_tms(int line)
   }
 
   /* handle Game Gear reduced screen (160x144) */
-  if ((system_hw == SYSTEM_GG) && !config.gg_extra && (v_counter < bitmap.viewport.h))
+  if ((system_hw == SYSTEM_GG) && !config_legacy.gg_extra && (v_counter < bitmap.viewport.h))
   {
     int line = v_counter - (bitmap.viewport.h - 144) / 2;
     if ((line < 0) || (line >= 144))
@@ -3167,7 +3167,7 @@ void render_obj_m4(int line)
   }
 
   /* handle Game Gear reduced screen (160x144) */
-  if ((system_hw == SYSTEM_GG) && !config.gg_extra && (v_counter < bitmap.viewport.h))
+  if ((system_hw == SYSTEM_GG) && !config_legacy.gg_extra && (v_counter < bitmap.viewport.h))
   {
     int line = v_counter - (bitmap.viewport.h - 144) / 2;
     if ((line < 0) || (line >= 144))
@@ -4227,14 +4227,14 @@ void remap_line(int line)
   if (line < 0) return;
 
   /* Adjust for interlaced output */
-  if (interlaced && config.render)
+  if (interlaced && config_legacy.render)
   {
     line = (line * 2) + odd_frame;
   }
 
 #if defined(USE_15BPP_RENDERING) || defined(USE_16BPP_RENDERING)
   /* NTSC Filter (only supported for 15 or 16-bit pixels rendering) */
-  if (config.ntsc)
+  if (config_legacy.ntsc)
   {
     if (reg[12] & 0x01)
     {
@@ -4253,11 +4253,11 @@ void remap_line(int line)
 #else
     /* Convert VDP pixel data to output pixel format */
     PIXEL_OUT_T *dst = ((PIXEL_OUT_T *)&bitmap.data[(line * bitmap.pitch)]);
-    if (config.lcd)
+    if (config_legacy.lcd)
     {
       do
       {
-        RENDER_PIXEL_LCD(src,dst,pixel,config.lcd);
+        RENDER_PIXEL_LCD(src,dst,pixel,config_legacy.lcd);
       }
       while (--width);
     }

@@ -110,8 +110,8 @@ DEFINES += \
 
 # =============================================================================
 
-CFLAGS += `$(PKGCONFIG) --cflags zlib vorbisfile`
-LIBS   += `$(PKGCONFIG) --libs zlib vorbisfile`
+CFLAGS += `$(PKGCONFIG) --cflags zlib vorbisfile jansson`
+LIBS   += `$(PKGCONFIG) --libs zlib vorbisfile jansson`
 
 CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
 

@@ -210,7 +210,7 @@ int psg_context_load(uint8 *state)
   }
 
   /* update mixed channels output */
-  if (config.hq_psg)
+  if (config_legacy.hq_psg)
   {
     blip_add_delta(snd.blips[0], psg.clocks, delta[0], delta[1]);
   }
@@ -462,7 +462,7 @@ static void psg_update(unsigned int clocks)
     if (psg.chanDelta[i][0] | psg.chanDelta[i][1])
     {
       /* update channel output */
-      if (config.hq_psg)
+      if (config_legacy.hq_psg)
       {
         blip_add_delta(snd.blips[0], psg.clocks, psg.chanDelta[i][0], psg.chanDelta[i][1]);
       }
@@ -492,7 +492,7 @@ static void psg_update(unsigned int clocks)
         polarity = -polarity;
 
         /* update channel output */
-        if (config.hq_psg)
+        if (config_legacy.hq_psg)
         {
           blip_add_delta(snd.blips[0], timestamp, polarity*psg.chanOut[i][0], polarity*psg.chanOut[i][1]);
         }
@@ -542,7 +542,7 @@ static void psg_update(unsigned int clocks)
           shiftOutput = (shiftValue & 0x1) - shiftOutput;
 
           /* update noise channel output */
-          if (config.hq_psg)
+          if (config_legacy.hq_psg)
           {
             blip_add_delta(snd.blips[0], timestamp, shiftOutput*psg.chanOut[3][0], shiftOutput*psg.chanOut[3][1]);
           }

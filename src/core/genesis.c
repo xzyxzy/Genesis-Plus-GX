@@ -71,7 +71,7 @@ void gen_init(void)
   {
     /* initialize main 68k */
     m68k_init();
-    m68k.aerr_enabled = config.addr_error; 
+    m68k.aerr_enabled = config_legacy.addr_error; 
 
     /* initialize main 68k memory map */
 
@@ -295,7 +295,7 @@ void gen_reset(int hard_reset)
     zbank = 0;  
 
     /* TMSS support */
-    if ((config.bios & 1) && (system_hw == SYSTEM_MD) && hard_reset)
+    if ((config_legacy.bios & 1) && (system_hw == SYSTEM_MD) && hard_reset)
     {
       int i;
 
@@ -368,7 +368,7 @@ void gen_reset(int hard_reset)
     else if (system_hw & (SYSTEM_SMS | SYSTEM_GG))
     {
       /* check if BIOS is not being used */
-      if ((!(config.bios & 1) || !(system_bios & (SYSTEM_SMS | SYSTEM_GG))))
+      if ((!(config_legacy.bios & 1) || !(system_bios & (SYSTEM_SMS | SYSTEM_GG))))
       {
         /* a few Master System (Ace of Aces, Shadow Dancer) & Game Gear (Ecco the Dolphin, Evander Holyfield Real Deal Boxing) games crash if SP is not properly initialized */
         Z80.sp.w.l = 0xDFF0;

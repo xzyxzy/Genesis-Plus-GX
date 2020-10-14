@@ -427,7 +427,7 @@ void md_cart_init(void)
   areplay_shutdown();
 
   /* initialize extra hardware */
-  switch (config.lock_on)
+  switch (config_legacy.lock_on)
   {
     case TYPE_GG:
     {
@@ -729,7 +729,7 @@ void md_cart_reset(int hard_reset)
   }
 
   /* Lock-ON */
-  switch (config.lock_on)
+  switch (config_legacy.lock_on)
   {
     case TYPE_GG:
     {
@@ -899,7 +899,7 @@ static void mapper_sega_w(uint32 data)
     }
 
     /* S&K lock-on chip */
-    if ((cart.special & HW_LOCK_ON) && (config.lock_on == TYPE_SK))
+    if ((cart.special & HW_LOCK_ON) && (config_legacy.lock_on == TYPE_SK))
     {
       /* S2K upmem chip mapped to $300000-$3fffff (256K mirrored) */
       for (i=0x30; i<0x40; i++)

@@ -64,7 +64,7 @@ unsigned int zbank_lockup_r(unsigned int address)
 #ifdef LOGERROR
   error("Z80 bank lockup read %06X (%x)\n", address, Z80.pc.d);
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     Z80.cycles = 0xFFFFFFFF;
     zstate = 0;
@@ -77,7 +77,7 @@ void zbank_lockup_w(unsigned int address, unsigned int data)
 #ifdef LOGERROR
   error("Z80 bank lockup write %06X = %02X (%x)\n", address, data, Z80.pc.d);
 #endif
-  if (!config.force_dtack)
+  if (!config_legacy.force_dtack)
   {
     Z80.cycles = 0xFFFFFFFF;
     zstate = 0;
@@ -193,7 +193,7 @@ void zbank_write_ctrl_io(unsigned int address, unsigned int data)
 
     case 0x41:  /* OS ROM */
     {
-      if ((config.bios & 1) && (address & 1))
+      if ((config_legacy.bios & 1) && (address & 1))
       {
         gen_bankswitch_w(data & 1);
         return;

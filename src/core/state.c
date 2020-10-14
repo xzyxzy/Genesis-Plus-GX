@@ -102,7 +102,7 @@ int state_load(unsigned char *state)
   load_param(io_reg, sizeof(io_reg));
   if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
   {
-    io_reg[0] = region_code | 0x20 | (config.bios & 1);
+    io_reg[0] = region_code | 0x20 | (config_legacy.bios & 1);
   }
   else
   {
@@ -116,11 +116,11 @@ int state_load(unsigned char *state)
   bufferptr += sound_context_load(&state[bufferptr]);
   if ((system_hw & SYSTEM_PBC) == SYSTEM_MD)
   {
-    psg_config(0, config.psg_preamp, 0xff);
+    psg_config(0, config_legacy.psg_preamp, 0xff);
   }
   else
   {
-    psg_config(0, config.psg_preamp, io_reg[6]);
+    psg_config(0, config_legacy.psg_preamp, io_reg[6]);
   }
 
   /* 68000 */
