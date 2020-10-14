@@ -1,0 +1,63 @@
+{
+    "binds": {
+        "controller_1": {
+            "1": ["p1_a"],
+            "2": ["p1_b"],
+            "3": ["p1_c"],
+            "8": ["p1_start"],
+            "hat_up": ["p1_up"],
+            "hat_down": ["p1_down"],
+            "hat_left": ["p1_left"],
+            "hat_right": ["p1_right"],
+            "axis_1": ["p1_analog_x"],
+            "axis_2": ["p1_analog_y"]
+        },
+        "keyboard": {
+            "esc": ["quit"],
+            "tab": ["reset"],
+            "a": ["p1_a"],
+            "s": ["p1_b"],
+            "d": ["p1_c"],
+            "enter": ["p1_start"],
+            "up": ["p1_up"],
+            "down": ["p1_down"],
+            "left": ["p1_left"],
+            "right": ["p1_right"]
+        }
+    },
+    "rom": {
+        "paths": [
+            "./rom.bin",
+            "./SONIC2_W.68K",
+            "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Sega Classics\\uncompressed ROMs\\SONIC2_W.68K",
+            "~/Library/Application Support/Steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K",
+            "~/.steam/steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K"
+        ],
+        "paths_patch": [
+            "./patch.ips"
+        ],
+        "md5": "9feeb724052c39982d432a7851c98d3e",
+        "warn_patch_missing": true
+    },
+    "system": {
+        "psg_preamp": 150,
+        "fm_preamp": 100,
+        "hq_fm": 1,
+        "hq_psg": 1,
+        "filter": 0,
+        "low_freq": 200,
+        "high_freq": 8000,
+        "lg": 100,
+        "mg": 100,
+        "hg": 100,
+        "lp_range": 32767,
+        "mono": 0,
+        "region_detect": 0,
+        "vdp_mode": 0,
+        "master_clock": 0,
+        "force_dtack": 0,
+        "addr_error": 0,
+        "no_sprite_limit": 1,
+        "lcd": 1
+    }
+}

@@ -29,11 +29,10 @@
 #define ID_CMD_NULL     0
 #define ID_CMD_STOP     3
 
-int gamehacks_play_sfx(int id) {
+int gamehacks_play_sfx(char id) {
     if (id == 0) return 0;
 
     // This literally should never be an issue unless the path is changed below
-    // Actually to make double sure I should probably change ID to a char
     char *path = (char *)malloc((100)*sizeof(char));
 
     // This is pretty much exclusively used for ring panning
@@ -56,11 +55,11 @@ int gamehacks_play_music_path(char *path) {
     return ID_CMD_STOP;
 }
 
-int music_id_backup;
-int music_id_current;
+char music_id_backup;
+char music_id_current;
 int music_playing_1up_file;
 
-int gamehacks_play_music(int id) {
+int gamehacks_play_music(char id) {
     if (id == 0) return ID_CMD_NULL;
 
     // Gotta love 1-up track edge cases
@@ -73,8 +72,7 @@ int gamehacks_play_music(int id) {
     }
     music_id_current = id;
 
-    // This shouldn't be a problem unless the act or track ID is fucking
-    // massive, in which case it'll then be a big problem
+    // This literally should never be an issue unless the path is changed below
     char *path = (char *)malloc((80+1)*sizeof(char));
 
     // Attempt to play per-act track
@@ -102,7 +100,7 @@ int gamehacks_play_music(int id) {
     return id;
 }
 
-int gamehacks_play_command(int id) {
+int gamehacks_play_command(char id) {
     // I think I need to finish implementing commands
     switch (id) {
         case 0:
@@ -114,7 +112,7 @@ int gamehacks_play_command(int id) {
     }
 }
 
-int gamehacks_play_sound(int id) {
+int gamehacks_play_sound(char id) {
     if (id < id_music_start) return gamehacks_play_command(id);
     else if (id <= id_music_end) return gamehacks_play_music(id);
     else return gamehacks_play_sfx(id);
@@ -125,7 +123,7 @@ void gamehacks_update_sound() {
         if (!Backend_Sound_IsPlayingMusic()) {
             music_playing_1up_file = 0;
             music_id_current = 0;
-            int music_id_tmp = music_id_backup;
+            char music_id_tmp = music_id_backup;
             music_id_backup = 0;
             gamehacks_play_music(music_id_tmp);
         }

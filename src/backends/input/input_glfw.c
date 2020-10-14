@@ -30,87 +30,87 @@ void Update_KB() {
 }
 
 void Update_Joystick() {
-	// int count = 0;
-	// input_j1 = 0;
+	int count = 0;
+	input_j1 = 0;
 
-	// const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
+	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
 
-	// if ((count >= 1) && buttons[0]) input.pad[joynum] |= INPUT_A;
-	// if ((count >= 2) && buttons[1]) input.pad[joynum] |= INPUT_B;
-	// if ((count >= 3) && buttons[2]) input.pad[joynum] |= INPUT_C;
-	// if ((count >= 8) && buttons[7]) input.pad[joynum] |= INPUT_START;
+	if ((count >= 1) && buttons[0]) input.pad[joynum] |= INPUT_A;
+	if ((count >= 2) && buttons[1]) input.pad[joynum] |= INPUT_B;
+	if ((count >= 3) && buttons[2]) input.pad[joynum] |= INPUT_C;
+	if ((count >= 8) && buttons[7]) input.pad[joynum] |= INPUT_START;
 
-	// const unsigned char* hats = glfwGetJoystickHats(GLFW_JOYSTICK_1, &count);
+	const unsigned char* hats = glfwGetJoystickHats(GLFW_JOYSTICK_1, &count);
 	
-	// if ((count >= 1) && (hats[0] & GLFW_HAT_UP))      input_j1 |= INPUT_UP;
-	// if ((count >= 1) && (hats[0] & GLFW_HAT_DOWN))    input_j1 |= INPUT_DOWN;
-	// if ((count >= 1) && (hats[0] & GLFW_HAT_LEFT))    input_j1 |= INPUT_LEFT;
-	// if ((count >= 1) && (hats[0] & GLFW_HAT_RIGHT))   input_j1 |= INPUT_RIGHT;
+	if ((count >= 1) && (hats[0] & GLFW_HAT_UP))      input_j1 |= INPUT_UP;
+	if ((count >= 1) && (hats[0] & GLFW_HAT_DOWN))    input_j1 |= INPUT_DOWN;
+	if ((count >= 1) && (hats[0] & GLFW_HAT_LEFT))    input_j1 |= INPUT_LEFT;
+	if ((count >= 1) && (hats[0] & GLFW_HAT_RIGHT))   input_j1 |= INPUT_RIGHT;
 
-	// const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
+	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
 
-	// int axis_lx = 0;
-	// int axis_ly = 0;
+	int axis_lx = 0;
+	int axis_ly = 0;
 
-	// if (count >= 1) {
-	// 	axis_lx = axes[0] * 32767;
-	// 	axis_ly = axes[1] * 32767;
-	// }
+	if (count >= 1) {
+		axis_lx = axes[0] * 32767;
+		axis_ly = axes[1] * 32767;
+	}
 
-	// double deadzone_l = 10000;
-	// double intensity_l = sqrt(pow(axis_lx, 2) + pow(axis_ly, 2));
-	// // printf("%f\n",intensity_l);
-	// double angle_l = atan2((double)axis_ly, (double)axis_lx) + M_PI;
+	double deadzone_l = 10000;
+	double intensity_l = sqrt(pow(axis_lx, 2) + pow(axis_ly, 2));
+	// printf("%f\n",intensity_l);
+	double angle_l = atan2((double)axis_ly, (double)axis_lx) + M_PI;
 
-	// double angle_overlap_x = M_PI_4 / 8.0;
-	// double angle_overlap_y = M_PI_4 / 8.0;
+	double angle_overlap_x = M_PI_4 / 8.0;
+	double angle_overlap_y = M_PI_4 / 8.0;
 
-	// double deadzone_lx_analog_upper = 10000;
-	// double intensity_lx_adj = min(1, max(0,
-	// 	(abs(axis_lx) - deadzone_l) /
-	// 	(32767.0 - deadzone_lx_analog_upper - deadzone_l)
-	// ));
+	double deadzone_lx_analog_upper = 10000;
+	double intensity_lx_adj = min(1, max(0,
+		(abs(axis_lx) - deadzone_l) /
+		(32767.0 - deadzone_lx_analog_upper - deadzone_l)
+	));
 
 
-	// int allow_horiz = 1;
-	// if (intensity_lx_adj < 1.0) {
-	// 	double frametimer_period = 3.0;
-	// 	allow_horiz = (
-	// 		(int)(frametimer / frametimer_period) %
-	// 		(
-	// 			(int)(60.0 / frametimer_period) -
-	// 			(int)(intensity_lx_adj * (60.0 / frametimer_period))
-	// 		)
-	// 	) == 0;
-	// }
+	int allow_horiz = 1;
+	if (intensity_lx_adj < 1.0) {
+		double frametimer_period = 3.0;
+		allow_horiz = (
+			(int)(frametimer / frametimer_period) %
+			(
+				(int)(60.0 / frametimer_period) -
+				(int)(intensity_lx_adj * (60.0 / frametimer_period))
+			)
+		) == 0;
+	}
 
-	// if (intensity_l > deadzone_l) {
-	// 	if (
-	// 		(
-	// 		(angle_l < M_PI_4 + angle_overlap_x) ||
-	// 		(angle_l > ((2*M_PI) - M_PI_4 - angle_overlap_x))
-	// 		) && (allow_horiz)
-	// 	) input.pad[joynum] |= INPUT_LEFT;
+	if (intensity_l > deadzone_l) {
+		if (
+			(
+			(angle_l < M_PI_4 + angle_overlap_x) ||
+			(angle_l > ((2*M_PI) - M_PI_4 - angle_overlap_x))
+			) && (allow_horiz)
+		) input.pad[joynum] |= INPUT_LEFT;
 
-	// 	if (
-	// 		(
-	// 		(angle_l < (M_PI + M_PI_4 + angle_overlap_x)) &&
-	// 		(angle_l > (M_PI - M_PI_4 - angle_overlap_x))
-	// 		) && (allow_horiz)
-	// 	) input.pad[joynum] |= INPUT_RIGHT;
+		if (
+			(
+			(angle_l < (M_PI + M_PI_4 + angle_overlap_x)) &&
+			(angle_l > (M_PI - M_PI_4 - angle_overlap_x))
+			) && (allow_horiz)
+		) input.pad[joynum] |= INPUT_RIGHT;
 
-	// 	if (
-	// 		(angle_l < (M_PI_2 + M_PI_4 + angle_overlap_y)) &&
-	// 		(angle_l > (M_PI_2 - M_PI_4 - angle_overlap_y))
-	// 	) input.pad[joynum] |= INPUT_UP;
+		if (
+			(angle_l < (M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+			(angle_l > (M_PI_2 - M_PI_4 - angle_overlap_y))
+		) input.pad[joynum] |= INPUT_UP;
 
-	// 	if (
-	// 		(angle_l < (M_PI + M_PI_2 + M_PI_4 + angle_overlap_y)) &&
-	// 		(angle_l > (M_PI + M_PI_2 - M_PI_4 - angle_overlap_y))
-	// 	) input.pad[joynum] |= INPUT_DOWN;
-	// }
+		if (
+			(angle_l < (M_PI + M_PI_2 + M_PI_4 + angle_overlap_y)) &&
+			(angle_l > (M_PI + M_PI_2 - M_PI_4 - angle_overlap_y))
+		) input.pad[joynum] |= INPUT_DOWN;
+	}
 
-	// input.pad[joynum] |= input_j1;
+	input.pad[joynum] |= input_j1;
 }
 
 int Backend_Input_MainLoop() {
