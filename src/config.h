@@ -3,6 +3,7 @@
 #define _CONFIG_H_
 
 #include "shared.h"
+#include "jansson.h"
 
 /****************************************************************************
  * Config Option 
@@ -60,6 +61,8 @@ typedef struct
 
 /* Global variables */
 extern t_config config_legacy;
+extern json_t *config_json;
+extern int config_load();
 extern void set_config_defaults(void);
 
 #endif /* _CONFIG_H_ */

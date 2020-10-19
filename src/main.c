@@ -29,6 +29,7 @@ extern "C" {
 #include "shared.h"
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
+#include "config.h"
 
 #include "backends/sound/sound_base.h"
 short soundframe[SOUND_SAMPLES_SIZE];
@@ -159,7 +160,7 @@ int main (int argc, char **argv) {
 
   /* set default config */
   error_init();
-  set_config_defaults();
+  config_load();
 
   /* mark all BIOS as unloaded */
   system_bios = 0;
@@ -207,6 +208,7 @@ int main (int argc, char **argv) {
   /* initialize backends */
   Backend_Video_Init();
   Backend_Input_Init();
+  inputact_init();
   Backend_Sound_Init();
 
   bitmap.viewport.changed = 3;

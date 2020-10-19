@@ -1,28 +1,36 @@
 {
     "binds": {
-        "controller_1": {
-            "1": ["p1_a"],
-            "2": ["p1_b"],
-            "3": ["p1_c"],
-            "8": ["p1_start"],
-            "hat_up": ["p1_up"],
-            "hat_down": ["p1_down"],
-            "hat_left": ["p1_left"],
-            "hat_right": ["p1_right"],
-            "axis_1": ["p1_analog_x"],
-            "axis_2": ["p1_analog_y"]
+        "controller": {
+            "1": {
+                "1": ["pad_1_a"],
+                "2": ["pad_1_b"],
+                "3": ["pad_1_c"],
+                "8": ["pad_1_start"],
+                "11": ["pad_1_up"],
+                "13": ["pad_1_down"],
+                "14": ["pad_1_left"],
+                "12": ["pad_1_right"],
+                "analog": {
+                    "deadzone": 10000,
+                    "axis": {
+                        "x": 0,
+                        "y": 1
+                    }
+                }
+            }
         },
         "keyboard": {
-            "esc": ["quit"],
-            "tab": ["reset"],
-            "a": ["p1_a"],
-            "s": ["p1_b"],
-            "d": ["p1_c"],
-            "enter": ["p1_start"],
-            "up": ["p1_up"],
-            "down": ["p1_down"],
-            "left": ["p1_left"],
-            "right": ["p1_right"]
+            "256": ["quit"],
+            "258": ["reset"],
+            "300": ["fullscreen"],
+            "a": ["pad_1_a"],
+            "s": ["pad_1_b"],
+            "d": ["pad_1_c"],
+            "257": ["pad_1_start"],
+            "265": ["pad_1_up"],
+            "264": ["pad_1_down"],
+            "263": ["pad_1_left"],
+            "262": ["pad_1_right"]
         }
     },
     "rom": {
@@ -42,8 +50,8 @@
     "system": {
         "psg_preamp": 150,
         "fm_preamp": 100,
-        "hq_fm": 1,
-        "hq_psg": 1,
+        "hq_fm": true,
+        "hq_psg": true,
         "filter": 0,
         "low_freq": 200,
         "high_freq": 8000,
@@ -51,13 +59,12 @@
         "mg": 100,
         "hg": 100,
         "lp_range": 32767,
-        "mono": 0,
-        "region_detect": 0,
+        "mono": false,
+        "region_detect": false,
         "vdp_mode": 0,
         "master_clock": 0,
-        "force_dtack": 0,
-        "addr_error": 0,
-        "no_sprite_limit": 1,
-        "lcd": 1
+        "force_dtack": false,
+        "addr_error": false,
+        "no_sprite_limit": true
     }
 }
