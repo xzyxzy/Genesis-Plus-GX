@@ -1,0 +1,70 @@
+{
+    "binds": {
+        "controller": {
+            "1": {
+                "1": ["pad_1_a"],
+                "2": ["pad_1_b"],
+                "3": ["pad_1_c"],
+                "8": ["pad_1_start"],
+                "11": ["pad_1_up"],
+                "13": ["pad_1_down"],
+                "14": ["pad_1_left"],
+                "12": ["pad_1_right"],
+                "analog": {
+                    "deadzone": 10000,
+                    "axis": {
+                        "x": 0,
+                        "y": 1
+                    }
+                }
+            }
+        },
+        "keyboard": {
+            "256": ["quit"],
+            "258": ["reset"],
+            "300": ["fullscreen"],
+            "a": ["pad_1_a"],
+            "s": ["pad_1_b"],
+            "d": ["pad_1_c"],
+            "257": ["pad_1_start"],
+            "265": ["pad_1_up"],
+            "264": ["pad_1_down"],
+            "263": ["pad_1_left"],
+            "262": ["pad_1_right"]
+        }
+    },
+    "rom": {
+        "paths": [
+            "./rom.bin",
+            "./SONIC2_W.68K",
+            "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Sega Classics\\uncompressed ROMs\\SONIC2_W.68K",
+            "~/Library/Application Support/Steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K",
+            "~/.steam/steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K"
+        ],
+        "paths_patch": [
+            "./patch.ips"
+        ],
+        "md5": "9feeb724052c39982d432a7851c98d3e",
+        "warn_patch_missing": true
+    },
+    "system": {
+        "psg_preamp": 150,
+        "fm_preamp": 100,
+        "hq_fm": true,
+        "hq_psg": true,
+        "filter": 0,
+        "low_freq": 200,
+        "high_freq": 8000,
+        "lg": 100,
+        "mg": 100,
+        "hg": 100,
+        "lp_range": 32767,
+        "mono": false,
+        "region_detect": false,
+        "vdp_mode": 0,
+        "master_clock": 0,
+        "force_dtack": false,
+        "addr_error": false,
+        "no_sprite_limit": true
+    }
+}

@@ -2,6 +2,11 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "shared.h"
 #include "jansson.h"
 
@@ -63,7 +68,10 @@ typedef struct
 extern t_config config_legacy;
 extern json_t *config_json;
 extern int config_load();
-extern void set_config_defaults(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _CONFIG_H_ */
 

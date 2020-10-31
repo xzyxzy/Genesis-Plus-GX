@@ -6,6 +6,5 @@
 
 extern int debug_on;
 extern int log_error;
-extern int Backend_Input_Update();
 
 #endif /* _MAIN_H_ */

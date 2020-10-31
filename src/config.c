@@ -40,7 +40,7 @@ void config_legacy_update() {
 	SET_FROM_IF_EXISTS(config_system, "ntsc",					uint8,	json_boolean_value, config_legacy.ntsc);
 }
 
-void set_config_defaults(void)
+void config_legacy_set_defaults(void)
 {
 	/* sound options */
 	config_legacy.psg_preamp     = 150;
@@ -98,12 +98,56 @@ void set_config_defaults(void)
 	}
 }
 
-int config_load() {
-	set_config_defaults();
+const char *config_default = "{ \
+    \"binds\": { \
+        \"controller\": { \
+            \"1\": { \
+                \"1\": [\"pad_1_a\"], \
+                \"2\": [\"pad_1_b\"], \
+                \"3\": [\"pad_1_c\"], \
+                \"4\": [\"pad_1_y\"], \
+                \"8\": [\"pad_1_start\"], \
+                \"11\": [\"pad_1_up\"], \
+                \"13\": [\"pad_1_down\"], \
+                \"14\": [\"pad_1_left\"], \
+                \"12\": [\"pad_1_right\"], \
+                \"analog\": { \
+                    \"deadzone\": 10000, \
+                    \"axis\": { \
+                        \"x\": 0, \
+                        \"y\": 1 \
+                    } \
+                } \
+            } \
+        }, \
+        \"keyboard\": { \
+            \"256\": [\"quit\"], \
+            \"258\": [\"reset\"], \
+            \"300\": [\"fullscreen\"], \
+            \"a\": [\"pad_1_a\"], \
+            \"s\": [\"pad_1_b\"], \
+            \"d\": [\"pad_1_c\"], \
+            \"257\": [\"pad_1_start\"], \
+            \"265\": [\"pad_1_up\"], \
+            \"264\": [\"pad_1_down\"], \
+            \"263\": [\"pad_1_left\"], \
+            \"262\": [\"pad_1_right\"] \
+        } \
+    }, \
+    \"rom\": { \
+        \"paths\": [], \
+        \"paths_patch\": [] \
+    } \
+}";
 
-	json_error_t *error;
-	config_json = json_load_file("./config.json", 0, error);
-	if (error) return 0;
+int config_load() {
+	json_error_t error;
+	config_json = json_load_file("./config.json", 0, &error);
+	if (!config_json) {
+		config_json = json_loads(config_default, 0, &error);
+		if (!config_json) return 0;
+	}
+	config_legacy_set_defaults();
 	config_legacy_update();
 
 	return 1;

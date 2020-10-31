@@ -1,7 +1,9 @@
+#include "portable-file-dialogs.h"
+
 #include "inputact.h"
 #include "shared.h"
 #include "video_base.h" 
-#include "config.h" 
+#include "config.h"
 
 void input_run_action(char *str, int press) {
     if (press == 2) return;
@@ -36,10 +38,40 @@ void input_run_action(char *str, int press) {
         // input.pad[padnum] |= input_kb;
 
     } else if (strcmp(str, "reset") == 0) {
-        if (press) system_reset();
+        if (!press) return;
+        json_t *config_system = json_object_get(config_json, "system");
+        json_t *config_confirm_reset = json_object_get(config_system, "confirm_reset");
+        if (
+            (config_confirm_reset != NULL) &&
+            json_boolean_value(config_confirm_reset)
+        ) {
+            pfd::button quit_result = pfd::message(
+                "Reset",
+                "Are you sure you want to reset?",
+                pfd::choice::yes_no,
+                pfd::icon::warning
+            ).result();
+            if (quit_result != pfd::button::yes) return;
+        }
+        system_reset();
     } else if (strcmp(str, "fullscreen") == 0) {
         if (press) Backend_Video_ToggleFullscreen();
     } else if (strcmp(str, "quit") == 0) {
+        if (!press) return;
+        json_t *config_system = json_object_get(config_json, "system");
+        json_t *config_confirm_quit = json_object_get(config_system, "confirm_quit");
+        if (
+            (config_confirm_quit != NULL) &&
+            json_boolean_value(config_confirm_quit)
+        ) {
+            pfd::button quit_result = pfd::message(
+                "Quit",
+                "Are you sure you want to quit?",
+                pfd::choice::yes_no,
+                pfd::icon::question
+            ).result();
+            if (quit_result != pfd::button::yes) return;
+        }
         running = 0;
     }
 }
@@ -52,7 +84,7 @@ void input_process_joystick(int joynum, int button, int press) {
 
     if (binds_controller == NULL) return;
 
-    char *buffer[3];
+    char buffer[3];
 
     if (joynum + 1 >= 100) return;
     sprintf(buffer, "%i", joynum + 1);
@@ -70,35 +102,27 @@ void input_process_joystick(int joynum, int button, int press) {
     for (int i = 0; i < json_array_size(bind_actions); i++) {
         json_t *element = json_array_get(bind_actions, i);
         if (!json_is_string(element)) continue;
-        input_run_action(json_string_value(element), press);
+        input_run_action((char *)json_string_value(element), press);
     }
 }
 
-void input_process_keycode(int keycode, int press) {
-    char *keyname = glfwGetKeyName(keycode, 0);
-    // printf("Keycode: %i, Pressed: %i, Name: %s\n", keycode, press, keyname);
+int input_process_keycode(char *keystr, int press) {
+    // printf("Keycode: %i, Pressed: %i, Name: %s\n", keycode, press, keystr);
 
-    if (binds_keyboard == NULL) return;
-    json_t *bind_actions = NULL;
-    if (keyname != NULL)
-        bind_actions = json_object_get(binds_keyboard, keyname);
+    if (keystr == NULL) return FALSE;
+    if (binds_keyboard == NULL) return FALSE;
 
-    if (bind_actions == NULL) {
-        char *buffer[5];
-        if (keycode >= 10000) return;
-        sprintf(buffer, "%i", keycode);
-        bind_actions = json_object_get(binds_keyboard, buffer);
-    }
-
-    if (bind_actions == NULL) return;
-
-    if (!json_is_array(bind_actions)) return;
+    json_t *bind_actions = json_object_get(binds_keyboard, keystr);
+    if (bind_actions == NULL) return FALSE;
+    if (!json_is_array(bind_actions)) return FALSE;
 
     for (int i = 0; i < json_array_size(bind_actions); i++) {
         json_t *element = json_array_get(bind_actions, i);
         if (!json_is_string(element)) continue;
-        input_run_action(json_string_value(element), press);
+        input_run_action((char *)json_string_value(element), press);
     }
+
+    return TRUE;
 }
 
 void inputact_init() {

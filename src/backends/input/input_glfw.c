@@ -115,7 +115,14 @@ int Backend_Input_MainLoop() {
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	input_process_keycode(key, action);
+    char *keyname = glfwGetKeyName(key, 0);
+	if (!input_process_keycode(keyname, action)) {
+		char buffer[5];
+		if (key >= 10000) return FALSE;
+		sprintf(buffer, "%i", key);
+		input_process_keycode(buffer, action);
+	}
+
 }
 
 int Backend_Input_Init() {

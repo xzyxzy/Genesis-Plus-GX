@@ -138,7 +138,8 @@ INCLUDES  += 	-I./src \
 				-I./src/core/ntsc \
 				-I./src/backends/input \
 				-I./src/backends/sound \
-				-I./src/backends/video
+				-I./src/backends/video \
+				-I./lib/portable-file-dialogs
 
 INCLUDES += $(LIBS)
 

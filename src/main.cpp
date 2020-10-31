@@ -1,4 +1,5 @@
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <limits.h>
 
 #if defined(__vita__)
@@ -30,6 +31,9 @@ extern "C" {
 #include "sms_ntsc.h"
 #include "md_ntsc.h"
 #include "config.h"
+#include "inputact.h"
+
+#include "portable-file-dialogs.h"
 
 #include "backends/sound/sound_base.h"
 short soundframe[SOUND_SAMPLES_SIZE];
@@ -146,6 +150,49 @@ void mainloop() {
 
 static struct timeval timeval_start;
 
+char *get_valid_filepath_jsonarray(json_t *patharr) {
+  if (patharr == NULL) return NULL;
+  if (!json_is_array(patharr)) return NULL;
+
+  // Iterate over array
+  struct stat statbuffer;
+  for (int i = 0; i < json_array_size(patharr); i++) {
+      // Ensure patharr[i] is a string
+      json_t *element = json_array_get(patharr, i);
+      if (!json_is_string(element)) continue;
+
+      // Ensure patharr[i] is a valid path
+      const char *path = json_string_value(element);
+      int path_exists = stat(path, &statbuffer) == 0;
+      // If it is, we've got our file
+      if (path_exists) return (char *)path;
+  }
+  return NULL;
+}
+
+char *get_rom_path() {
+  if (argv[1]) return argv[1];
+
+  // Ensure config.rom exists
+  json_t *config_rom = json_object_get(config_json, "rom");
+  if (config_rom == NULL) return NULL;
+
+  json_t *config_rompaths = json_object_get(config_rom, "paths");
+  return get_valid_filepath_jsonarray(config_rompaths);
+}
+
+char *get_diff_path() {
+  if (argv[2]) return argv[2];
+
+  // Ensure config.rom exists
+  json_t *config_rom = json_object_get(config_json, "rom");
+  if (config_rom == NULL) return NULL;
+
+  // Ensure config.rom.paths_patch exists
+  json_t *config_patchpaths = json_object_get(config_rom, "paths_patch");
+  return get_valid_filepath_jsonarray(config_patchpaths);
+}
+
 int main (int argc, char **argv) {
   printf("Emulator start\n");
 
@@ -155,8 +202,6 @@ int main (int argc, char **argv) {
   socketInitializeDefault();
   nxlinkStdio();
   #endif
-  
-  FILE *fp;
 
   /* set default config */
   error_init();
@@ -167,29 +212,56 @@ int main (int argc, char **argv) {
 
   /* Genesis BOOT ROM support (2KB max) */
   memset(boot_rom, 0xFF, 0x800);
-  fp = fopen(MD_BIOS, "rb");
-  if (fp != NULL)
-  {
-    int i;
-
+  FILE *fp = fopen(MD_BIOS, "rb");
+  if (fp != NULL) {
     /* read BOOT ROM */
     fread(boot_rom, 1, 0x800, fp);
     fclose(fp);
 
     /* check BOOT ROM */
     if (!memcmp((char *)(boot_rom + 0x120),"GENESIS OS", 10))
-    {
-      /* mark Genesis BIOS as loaded */
-      system_bios = SYSTEM_MD;
-    }
+      system_bios = SYSTEM_MD; /* mark Genesis BIOS as loaded */
 
     /* Byteswap ROM */
-    for (i=0; i<0x800; i+=2)
-    {
+    for (int i = 0; i < 0x800; i += 2) {
       uint8 temp = boot_rom[i];
       boot_rom[i] = boot_rom[i+1];
       boot_rom[i+1] = temp;
     }
+  }
+
+  // Load rom and patch, show warning messages if any issues occur
+  char *rom_path = get_rom_path();
+  char *diff_path = get_diff_path();
+
+  json_t *config_warn_patch_missing = json_object_get(config_rom, "warn_patch_missing");
+  if (
+    (diff_path == NULL) &&
+    (config_warn_patch_missing != NULL) &&
+    json_boolean_value(config_warn_patch_missing)
+  ) {
+    pfd::message(
+      "Patch Missing", 
+      "You are missing the IPS patch for this game. Things will likely not work correctly. Check your config.json if you're looking for where to put the patch file.",
+      pfd::choice::ok,
+      pfd::icon::warning
+    );
+  }
+
+  if((rom_path == NULL) || !load_rom(rom_path, diff_path))
+  {
+    char caption[256];
+    sprintf(caption, "Error loading file `%s'.", rom_path);
+    pfd::message(
+      "ROM Missing",
+      "You're missing a ROM file. Check your config.json if you're looking for where the ROM should be placed.",
+      pfd::choice::ok,
+      pfd::icon::error
+    );
+    #ifdef ENABLE_NXLINK
+    socketExit();
+    #endif
+    return 1;
   }
 
   /* initialize Genesis virtual system */
@@ -212,22 +284,6 @@ int main (int argc, char **argv) {
   Backend_Sound_Init();
 
   bitmap.viewport.changed = 3;
-
-  char * rom_path = argv[1];
-  char * diff_path = argv[2];
-  if (rom_path == NULL) rom_path = PATH_ROM;
-  if (diff_path == NULL) diff_path = PATH_PATCH;
-
-  /* Load game file */
-  if(!load_rom(rom_path, diff_path))
-  {
-    char caption[256];
-    sprintf(caption, "Error loading file `%s'.", rom_path);
-    #ifdef ENABLE_NXLINK
-    socketExit();
-    #endif
-    return 1;
-  }
 
   char caption[100];
   sprintf(caption,"%s", rominfo.international);
