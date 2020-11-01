@@ -18,6 +18,7 @@ Soloud soloud;
 
 WavStream music;
 int music_handle;
+int chunkqueue_handle;
 Bus filter_bus;
 float music_speed = 1.0;
 
@@ -45,24 +46,18 @@ int Backend_Sound_Init() {
     );
 
     chunkqueue.setParams(SOUND_FREQUENCY, 2);
+    chunkqueue.setInaudibleBehavior(true, false);
     soloud.play(filter_bus);
     underwaterFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 1000, 0);
 
     return 1;
 }
 
-// 0 = filling, 1 = full, 2 = playback started
-int bufferstate = 0;
 int soundrecovertimer = 0;
 
 short soundframe_reordered[SOUND_SAMPLES_SIZE];
 
 int Backend_Sound_Update(int size) {
-    if (soundrecovertimer) {
-        soundrecovertimer--;
-        return 0;
-    }
-
     for (int i = 0; i < size / 2; i++) {
         soundframe_reordered[i] = soundframe[i*2];
         soundframe_reordered[i + (size / 2)] = soundframe[(i*2)+1];
@@ -74,28 +69,24 @@ int Backend_Sound_Update(int size) {
         SOUND_FREQUENCY,
         2
     );
+    chunks[whichchunk].setInaudibleBehavior(true, false);
 
     // Prevent buffer from wrapping around, if it does it causes the audio to flip out
     if (chunkqueue.isCurrentlyPlaying(chunks[whichchunk])) {
         chunkqueue.stop();
         soloud.play(chunkqueue);
-        soundrecovertimer = 10;
         whichchunk++;
         return 0;
     }
 
     chunkqueue.play(chunks[whichchunk]);
     whichchunk++;
-
-    bufferstate |= whichchunk == CHUNK_BUFFER_SIZE - 1;
     whichchunk %= CHUNK_BUFFER_SIZE;
 
-    if (!bufferstate) return 1;    
-    if (bufferstate == 2) return 1;
+    if (!soloud.isValidVoiceHandle(chunkqueue_handle)) {
+        chunkqueue_handle = soloud.play(chunkqueue);
+    }
     
-    soloud.play(chunkqueue);
-    
-    bufferstate = 2;
     return 1;
 }
 
@@ -174,6 +165,7 @@ int Backend_Sound_FadeOutMusic(int fadeTime) {
 
 int Backend_Sound_SetPause(int paused) {
     soloud.setPauseAll(paused);
+    soloud.setPause(chunkqueue_handle, false);
     return 1;
 }
 

@@ -202,6 +202,7 @@ int main (int argc, const char **argv) {
   argparse_describe(
     &argparse,
     "\nGPGX Widescreen",
+    ""
   );
   argc = argparse_parse(&argparse, argc, argv);
 
