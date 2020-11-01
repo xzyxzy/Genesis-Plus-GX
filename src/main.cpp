@@ -2,14 +2,6 @@
 #include <sys/stat.h>
 #include <limits.h>
 
-#if defined(__vita__)
-#define PATH_ROM "ux0:rom.bin"
-#define PATH_PATCH "ux0:patch.ips"
-#else
-#define PATH_ROM "./rom.bin"
-#define PATH_PATCH "./patch.ips"
-#endif
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -33,6 +25,7 @@ extern "C" {
 #include "config.h"
 #include "inputact.h"
 
+#include "argparse.h"
 #include "portable-file-dialogs.h"
 
 #include "backends/sound/sound_base.h"
@@ -70,7 +63,6 @@ STATIC_ASSERT(z80_overflow,
    workaround */
 #ifdef HAVE_OVERCLOCK
 static uint32 overclock_delay;
-static int overclock_enable = 1;
 #endif
 
 int log_error   = 0;
@@ -132,7 +124,7 @@ void mainloop() {
 
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
-    if (overclock_enable && overclock_delay && --overclock_delay == 0)
+    if (overclock_delay && --overclock_delay == 0)
         update_overclock();
   #endif
   Backend_Video_Clear();
@@ -171,7 +163,7 @@ char *get_valid_filepath_jsonarray(json_t *patharr) {
 }
 
 char *get_rom_path() {
-  if (argv[1]) return argv[1];
+  // if (argv[1]) return argv[1];
 
   // Ensure config.rom exists
   json_t *config_rom = json_object_get(config_json, "rom");
@@ -182,7 +174,7 @@ char *get_rom_path() {
 }
 
 char *get_diff_path() {
-  if (argv[2]) return argv[2];
+  // if (argv[2]) return argv[2];
 
   // Ensure config.rom exists
   json_t *config_rom = json_object_get(config_json, "rom");
@@ -193,8 +185,25 @@ char *get_diff_path() {
   return get_valid_filepath_jsonarray(config_patchpaths);
 }
 
-int main (int argc, char **argv) {
-  printf("Emulator start\n");
+int main (int argc, const char **argv) {
+  char *rom_path = NULL;
+  char *diff_path = NULL;
+  char *config_path = "./config.json";
+
+  struct argparse_option options[] = {
+    OPT_HELP(),
+    OPT_STRING('r', "rom", &rom_path, "Path to ROM file"),
+    OPT_STRING('p', "patch", &diff_path, "Path to IPS patch file"),
+    OPT_STRING('c', "config", &config_path, "Path to config file"),
+    OPT_END(),
+  };
+  struct argparse argparse;
+  argparse_init(&argparse, options, 0, 0);
+  argparse_describe(
+    &argparse,
+    "\nGPGX Widescreen",
+  );
+  argc = argparse_parse(&argparse, argc, argv);
 
   gettimeofday(&timeval_start, NULL);
 
@@ -205,10 +214,14 @@ int main (int argc, char **argv) {
 
   /* set default config */
   error_init();
-  config_load();
+  config_load(config_path);
 
-  /* mark all BIOS as unloaded */
-  system_bios = 0;
+  printf("%s\n", config_path);
+  printf("%s\n", rom_path);
+  printf("%s\n", diff_path);
+
+  if (!rom_path) rom_path = get_rom_path();
+  if (!diff_path) diff_path = get_diff_path();
 
   /* Genesis BOOT ROM support (2KB max) */
   memset(boot_rom, 0xFF, 0x800);
@@ -230,10 +243,11 @@ int main (int argc, char **argv) {
     }
   }
 
-  // Load rom and patch, show warning messages if any issues occur
-  char *rom_path = get_rom_path();
-  char *diff_path = get_diff_path();
+  // Ensure config.rom exists
+  json_t *config_rom = json_object_get(config_json, "rom");
+  if (config_rom == NULL) return 0;
 
+  // Load rom and patch, show warning messages if any issues occur
   json_t *config_warn_patch_missing = json_object_get(config_rom, "warn_patch_missing");
   if (
     (diff_path == NULL) &&
@@ -248,8 +262,7 @@ int main (int argc, char **argv) {
     );
   }
 
-  if((rom_path == NULL) || !load_rom(rom_path, diff_path))
-  {
+  if((rom_path == NULL) || !load_rom(rom_path, diff_path)) {
     char caption[256];
     sprintf(caption, "Error loading file `%s'.", rom_path);
     pfd::message(

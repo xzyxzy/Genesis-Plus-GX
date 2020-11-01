@@ -47,7 +47,7 @@ t_bitmap bitmap;
 t_snd snd;
 uint32 mcycles_vdp;
 uint8 system_hw;
-uint8 system_bios;
+uint8 system_bios = 0;
 uint32 system_clock;
 int16 SVP_cycles = 800; 
 

@@ -67,7 +67,7 @@ typedef struct
 /* Global variables */
 extern t_config config_legacy;
 extern json_t *config_json;
-extern int config_load();
+extern int config_load(char *config_path);
 
 #ifdef __cplusplus
 }

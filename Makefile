@@ -139,7 +139,8 @@ INCLUDES  += 	-I./src \
 				-I./src/backends/input \
 				-I./src/backends/sound \
 				-I./src/backends/video \
-				-I./lib/portable-file-dialogs
+				-I./lib/portable-file-dialogs \
+				-I./lib/argparse
 
 INCLUDES += $(LIBS)
 
@@ -207,6 +208,9 @@ SOURCES	+=	src/main \
 			src/inputact \
 			src/gamehacks
 
+
+# Main Sources
+SOURCES	+=	lib/argparse/argparse
 
 PKGSUFFIX ?= $(SUFFIX)
 

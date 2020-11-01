@@ -140,9 +140,9 @@ const char *config_default = "{ \
     } \
 }";
 
-int config_load() {
+int config_load(char *config_path) {
 	json_error_t error;
-	config_json = json_load_file("./config.json", 0, &error);
+	config_json = json_load_file(config_path, 0, &error);
 	if (!config_json) {
 		config_json = json_loads(config_default, 0, &error);
 		if (!config_json) return 0;
