@@ -130,8 +130,8 @@ INLINE unsigned char gamepad_read(int port)
        TH = 1 : ?1CBRLDU    3-button pad return value
        TH = 0 : ?0SA00DU    3-button pad return value
        TH = 1 : ?1CBRLDU    3-button pad return value (*)
-       TH = 0 : ?0SA00DU    3-button pad return value (*)
-       TH = 1 : ?1CBRLDU    3-button pad return value
+       TH = 0 : 00xxxxxx    Analog, X axis (6 bit)
+       TH = 1 : 00yyyyyy    Analog, Y axis (6 bit)
        TH = 0 : ?0SA0000    D3-D0 are forced to '0'
        TH = 1 : ?1CBMXYZ    Extra buttons returned in D3-0
        TH = 0 : ?0SA1111    D3-D0 are forced to '1'
@@ -140,6 +140,20 @@ INLINE unsigned char gamepad_read(int port)
 
        (*) additional High-to-Low transition is necessary to access extra buttons according to official MK-1653-50 specification 
     */
+
+    case 2: /*** Second Low ***/
+    {
+      data = input.analog[port][0];
+      break;
+    }
+
+
+    case 5: /*** Third High ***/
+    {
+      data = input.analog[port][1];
+      break;
+    }
+
     case 4: /*** Third Low ***/
     {
       /* TH = 0 : ?0SA0000    D3-D0 forced to '0' */
@@ -157,7 +171,7 @@ INLINE unsigned char gamepad_read(int port)
     case 6: /*** Fourth Low ***/
     {
       /* TH = 0 : ?0SA1111    D3-D0 forced to '1' */
-      data &= ~((pad >> 2) & 0x30);
+      data = ~((pad >> 2) & 0x30);
       break;
     }
 

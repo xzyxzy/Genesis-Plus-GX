@@ -305,7 +305,7 @@ void vdp_reset(void)
   }
 
   /* default display area */
-  bitmap.viewport.w   = 400;
+  bitmap.viewport.w   = 256;
   bitmap.viewport.h   = 192;
   bitmap.viewport.ow  = 256;
   bitmap.viewport.oh  = 192;
@@ -1991,7 +1991,7 @@ static void vdp_reg_w(unsigned int r, unsigned int d, unsigned int cycles)
           window_clip(reg[17], 0);
 
           /* Update max sprite pixels per line*/
-          max_sprite_pixels = 400;
+          max_sprite_pixels = 256;
 
           /* FIFO access slots timings */
           fifo_timing = (int *)fifo_timing_h32;

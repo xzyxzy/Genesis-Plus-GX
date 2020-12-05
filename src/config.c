@@ -94,7 +94,7 @@ void config_legacy_set_defaults(void)
 	for (int i=0;i<MAX_INPUTS;i++)
 	{
 		/* autodetected control pad type */
-		config_legacy.input[i].padtype = DEVICE_PAD2B | DEVICE_PAD3B | DEVICE_PAD6B;
+		config_legacy.input[i].padtype = DEVICE_PAD6B;
 	}
 }
 
@@ -122,16 +122,26 @@ const char *config_default = "{ \
         }, \
         \"keyboard\": { \
             \"256\": [\"quit\"], \
+            \"Tab\": [\"reset\"], \
             \"258\": [\"reset\"], \
+            \"F11\": [\"fullscreen\"], \
             \"300\": [\"fullscreen\"], \
             \"a\": [\"pad_1_a\"], \
+            \"A\": [\"pad_1_a\"], \
             \"s\": [\"pad_1_b\"], \
+            \"S\": [\"pad_1_b\"], \
             \"d\": [\"pad_1_c\"], \
+            \"D\": [\"pad_1_c\"], \
             \"257\": [\"pad_1_start\"], \
+            \"Return\": [\"pad_1_start\"], \
             \"265\": [\"pad_1_up\"], \
+            \"Up\": [\"pad_1_up\"], \
             \"264\": [\"pad_1_down\"], \
+            \"Down\": [\"pad_1_down\"], \
             \"263\": [\"pad_1_left\"], \
-            \"262\": [\"pad_1_right\"] \
+            \"Left\": [\"pad_1_left\"], \
+            \"262\": [\"pad_1_right\"], \
+            \"Right\": [\"pad_1_right\"] \
         } \
     }, \
     \"rom\": { \

@@ -3,14 +3,15 @@
 #include "backends/video/video_base.h"
 #include "cpuhook.h"
 
-#define mQueue 0xEE7C
-#define mFlags 0xEE6A+1
-#define Current_Zone 0xFB24-1
-#define Current_Act 0xFB25-1
-#define dPlaySnd 0x12EC4A
-#define Game_Mode 0xF32A+1
+#define mQueue 0xEEC2
+#define mFlags 0xEEB0+1
+#define Current_Zone 0xFB90-1
+#define Current_Act 0xFB91-1
+#define Game_Mode 0xF370+1
 #define SSTrack_anim 0xDCAA+1
 #define SS_Cur_Speed_Factor 0xDCB8-1
+#define Option_Emulator_Scaling 0xFCFE +1
+#define Option_Emulator_MirrorMode 0xFCFF-1
 
 #define mQueue_0 mQueue // music
 #define mQueue_1 mQueue+1 // cmd
@@ -146,8 +147,20 @@ void gamehacks_update_sound() {
     Backend_Sound_MusicSetUnderwater(work_ram[mFlags] & mFlags_Mask_Underwater);
 }
 
+int option_scaling_prev = 0;
+void gamehacks_update_options() {
+    option_scaling = work_ram[Option_Emulator_Scaling];
+    if (option_scaling != option_scaling_prev) {
+        bitmap.viewport.changed |= 1;
+        option_scaling_prev = option_scaling;
+    }
+    option_mirrormode = work_ram[Option_Emulator_MirrorMode];
+
+}
+
 void gamehacks_update() {
     gamehacks_update_sound();
+    gamehacks_update_options();
 }
 
 void gamehacks_deinit() {

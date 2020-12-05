@@ -154,3 +154,7 @@ int Backend_Sound_PlaySFX(char *path) {
 int Backend_Sound_SetPause(int paused) {
   return 1;
 }
+
+int Backend_Sound_IsPlayingMusic() {
+  return 0;
+}

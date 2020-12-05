@@ -14,6 +14,7 @@
 #include "error.h"
 #include "unzip.h"
 #include "fileio.h"
+#include "input_base.h"
 
 #define osd_input_update Backend_Input_Update
 

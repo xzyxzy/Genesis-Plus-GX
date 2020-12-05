@@ -6,7 +6,8 @@
 
 #define WINDOW_SCALE 3
 
-extern int mirrormode;
+extern int option_mirrormode;
+extern int option_scaling;
 
 #ifdef __cplusplus
 extern "C" {

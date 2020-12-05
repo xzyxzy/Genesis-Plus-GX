@@ -12,7 +12,7 @@
 
 using namespace SoLoud;
 
-#define CHUNK_BUFFER_SIZE 16
+#define CHUNK_BUFFER_SIZE 8
 
 Soloud soloud;
 
@@ -23,7 +23,7 @@ Bus filter_bus;
 float music_speed = 1.0;
 
 int whichchunk = 0;
-Wav chunks[CHUNK_BUFFER_SIZE];
+Wav *chunks[CHUNK_BUFFER_SIZE];
 Queue chunkqueue;
 
 BiquadResonantFilter underwaterFilter;
@@ -53,39 +53,49 @@ int Backend_Sound_Init() {
     return 1;
 }
 
-int soundrecovertimer = 0;
-
-short soundframe_reordered[SOUND_SAMPLES_SIZE];
+bool soundrecover_triggered = false;
 
 int Backend_Sound_Update(int size) {
+    if (chunks[whichchunk] == NULL)
+        chunks[whichchunk] = new Wav();
+
+    Wav *chunk = chunks[whichchunk];
+
+    if (chunkqueue.getQueueCount() >= CHUNK_BUFFER_SIZE - 1)
+        return 1;
+
+    if (chunk->mData == NULL) {
+        chunk->mChannels = 2;
+        chunk->mBaseSamplerate = SOUND_FREQUENCY;
+        chunk->mData = new float[SOUND_SAMPLES_SIZE];
+        chunk->setInaudibleBehavior(true, false);
+    } else {
+        chunks[whichchunk]->stop();
+    }
+
+    // Doing this manually because it's broken in soloud's loadRawWave16
+    // (Also doing this directly is more efficient)
+    soloud.lockAudioMutex_internal();
+    chunk->mSampleCount = size / chunk->mChannels;
     for (int i = 0; i < size / 2; i++) {
-        soundframe_reordered[i] = soundframe[i*2];
-        soundframe_reordered[i + (size / 2)] = soundframe[(i*2)+1];
+        chunk->mData[i] = (
+            ((signed short)soundframe[i*2]) /
+            (float)0x8000
+        );
+
+        chunk->mData[i + (size / 2)] = (
+            ((signed short)soundframe[(i*2)+1]) /
+            (float)0x8000
+        );
     }
+    soloud.unlockAudioMutex_internal();
 
-    chunks[whichchunk].loadRawWave16(
-        soundframe_reordered,
-        size,
-        SOUND_FREQUENCY,
-        2
-    );
-    chunks[whichchunk].setInaudibleBehavior(true, false);
-
-    // Prevent buffer from wrapping around, if it does it causes the audio to flip out
-    if (chunkqueue.isCurrentlyPlaying(chunks[whichchunk])) {
-        chunkqueue.stop();
-        soloud.play(chunkqueue);
-        whichchunk++;
-        return 0;
-    }
-
-    chunkqueue.play(chunks[whichchunk]);
+    chunkqueue.play(*chunk);
     whichchunk++;
     whichchunk %= CHUNK_BUFFER_SIZE;
 
-    if (!soloud.isValidVoiceHandle(chunkqueue_handle)) {
+    if (!soloud.isValidVoiceHandle(chunkqueue_handle))
         chunkqueue_handle = soloud.play(chunkqueue);
-    }
     
     return 1;
 }

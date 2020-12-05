@@ -1,9 +1,25 @@
-#include "portable-file-dialogs.h"
+#ifdef ENABLE_DIALOGS
+    #include "portable-file-dialogs.h"
+#endif
 
 #include "inputact.h"
 #include "shared.h"
 #include "video_base.h" 
 #include "config.h"
+
+uint16 pad_action[MAX_DEVICES];
+uint16 pad_analog[MAX_DEVICES];
+
+void input_update_pad(int padnum) {
+    input.pad[padnum] = pad_action[padnum] | pad_analog[padnum];
+    if (option_mirrormode) {
+        bool left = input.pad[padnum] & INPUT_LEFT;
+        bool right = input.pad[padnum] & INPUT_RIGHT;
+        input.pad[padnum] &= ~(INPUT_RIGHT | INPUT_LEFT);
+        if (left) input.pad[padnum] |= INPUT_RIGHT;
+        if (right) input.pad[padnum] |= INPUT_LEFT;
+    }
+}
 
 void input_run_action(char *str, int press) {
     if (press == 2) return;
@@ -33,45 +49,49 @@ void input_run_action(char *str, int press) {
         else if(strcmp(buttonname, "left")  == 0)   keymask = INPUT_LEFT;
         else if(strcmp(buttonname, "right") == 0)   keymask = INPUT_RIGHT;
 
-        if (press) input.pad[padnum] |= keymask;
-        else input.pad[padnum] &= ~keymask;
-        // input.pad[padnum] |= input_kb;
+        if (press) pad_action[padnum] |= keymask;
+        else pad_action[padnum] &= ~keymask;
 
+        input_update_pad(padnum);
     } else if (strcmp(str, "reset") == 0) {
         if (!press) return;
-        json_t *config_system = json_object_get(config_json, "system");
-        json_t *config_confirm_reset = json_object_get(config_system, "confirm_reset");
-        if (
-            (config_confirm_reset != NULL) &&
-            json_boolean_value(config_confirm_reset)
-        ) {
-            pfd::button quit_result = pfd::message(
-                "Reset",
-                "Are you sure you want to reset?",
-                pfd::choice::yes_no,
-                pfd::icon::warning
-            ).result();
-            if (quit_result != pfd::button::yes) return;
-        }
+        #ifdef ENABLE_DIALOGS
+            json_t *config_system = json_object_get(config_json, "system");
+            json_t *config_confirm_reset = json_object_get(config_system, "confirm_reset");
+            if (
+                (config_confirm_reset != NULL) &&
+                json_boolean_value(config_confirm_reset)
+            ) {
+                pfd::button quit_result = pfd::message(
+                    "Reset",
+                    "Are you sure you want to reset?",
+                    pfd::choice::yes_no,
+                    pfd::icon::warning
+                ).result();
+                if (quit_result != pfd::button::yes) return;
+            }
+        #endif
         system_reset();
     } else if (strcmp(str, "fullscreen") == 0) {
         if (press) Backend_Video_ToggleFullscreen();
     } else if (strcmp(str, "quit") == 0) {
         if (!press) return;
-        json_t *config_system = json_object_get(config_json, "system");
-        json_t *config_confirm_quit = json_object_get(config_system, "confirm_quit");
-        if (
-            (config_confirm_quit != NULL) &&
-            json_boolean_value(config_confirm_quit)
-        ) {
-            pfd::button quit_result = pfd::message(
-                "Quit",
-                "Are you sure you want to quit?",
-                pfd::choice::yes_no,
-                pfd::icon::question
-            ).result();
-            if (quit_result != pfd::button::yes) return;
-        }
+        #ifdef ENABLE_DIALOGS
+            json_t *config_system = json_object_get(config_json, "system");
+            json_t *config_confirm_quit = json_object_get(config_system, "confirm_quit");
+            if (
+                (config_confirm_quit != NULL) &&
+                json_boolean_value(config_confirm_quit)
+            ) {
+                pfd::button quit_result = pfd::message(
+                    "Quit",
+                    "Are you sure you want to quit?",
+                    pfd::choice::yes_no,
+                    pfd::icon::question
+                ).result();
+                if (quit_result != pfd::button::yes) return;
+            }
+        #endif
         running = 0;
     }
 }
@@ -80,7 +100,7 @@ json_t *binds_keyboard;
 json_t *binds_controller;
 
 void input_process_joystick(int joynum, int button, int press) {
-    // printf("Joynum: %i, Button: %i, Pressed: %i\n", joynum, button, press);
+    printf("Joynum: %i, Button: %i, Pressed: %i\n", joynum, button, press);
 
     if (binds_controller == NULL) return;
 
@@ -107,7 +127,7 @@ void input_process_joystick(int joynum, int button, int press) {
 }
 
 int input_process_keycode(char *keystr, int press) {
-    // printf("Keycode: %i, Pressed: %i, Name: %s\n", keycode, press, keystr);
+    printf("Name: %s, Pressed: %i\n", keystr, press);
 
     if (keystr == NULL) return FALSE;
     if (binds_keyboard == NULL) return FALSE;
@@ -130,4 +150,8 @@ void inputact_init() {
     if (config_binds == NULL) return;
     binds_keyboard = json_object_get(config_binds, "keyboard");
     binds_controller = json_object_get(config_binds, "controller");
+    for (int i=0;i < MAX_DEVICES;i++) {
+        pad_action[i] = 0;
+        pad_analog[i] = 0;
+    }
 };

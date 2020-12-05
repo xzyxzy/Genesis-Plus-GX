@@ -78,8 +78,7 @@ ifeq ($(DEBUG),1)
 	CFLAGS += -g
 	DEFINES += -DDEBUG
 else
-	CFLAGS += -O2
-	DEFINES += -DNDEBUG
+	CFLAGS += -O3
 endif
 
 ifeq ($(PROFILE),1)
@@ -91,12 +90,17 @@ ifeq ($(VERBOSE),0)
 	CXX := @$(CXX)
 endif
 
+ifeq ($(ENABLE_DIALOGS),1)
+	INCLUDES += -I./lib/portable-file-dialogs
+	DEFINES += -DENABLE_DIALOGS
+endif
+
 # =============================================================================
 # Backends
 # =============================================================================
 
-BACKEND_VIDEO ?= glfw
-BACKEND_INPUT ?= glfw
+BACKEND_VIDEO ?= sdl2
+BACKEND_INPUT ?= sdl2
 BACKEND_AUDIO ?= soloud
 
 include Makefile_cfgs/Backends/Video/$(BACKEND_VIDEO).cfg
@@ -104,9 +108,9 @@ include Makefile_cfgs/Backends/Input/$(BACKEND_INPUT).cfg
 include Makefile_cfgs/Backends/Audio/$(BACKEND_AUDIO).cfg
 
 DEFINES += \
-	-DBACKEND_VIDEO=$(BACKEND_VIDEO) \
-	-DBACKEND_INPUT=$(BACKEND_INPUT) \
-	-DBACKEND_AUDIO=$(BACKEND_AUDIO)
+	-DBACKEND_VIDEO_$(BACKEND_VIDEO) \
+	-DBACKEND_INPUT_$(BACKEND_INPUT) \
+	-DBACKEND_AUDIO_$(BACKEND_AUDIO)
 
 # =============================================================================
 
@@ -139,7 +143,6 @@ INCLUDES  += 	-I./src \
 				-I./src/backends/input \
 				-I./src/backends/sound \
 				-I./src/backends/video \
-				-I./lib/portable-file-dialogs \
 				-I./lib/argparse
 
 INCLUDES += $(LIBS)
@@ -207,7 +210,6 @@ SOURCES	+=	src/main \
 			src/ips \
 			src/inputact \
 			src/gamehacks
-
 
 # Main Sources
 SOURCES	+=	lib/argparse/argparse

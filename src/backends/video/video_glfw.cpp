@@ -110,10 +110,18 @@ void Adjust_Points() {
   int video_height = VIDEO_HEIGHT;
   if (interlaced) video_height *= 2;
 
-  if (0) { // Integer scaling
-    rect_dest_h = (rect_dest_h / video_height) * (float)video_height;
+  float aspect_ratio = VIDEO_WIDTH / (float)video_height;
+  rect_dest_w = aspect_ratio * rect_dest_h;
+
+  if (rect_dest_w > screen_width) {
+    rect_dest_w = screen_width;
+    rect_dest_h = rect_dest_w / aspect_ratio;
   }
-  rect_dest_w = (VIDEO_WIDTH / (float)video_height) * rect_dest_h;
+
+  if (option_scaling) { // Integer scaling
+    rect_dest_h = (rect_dest_h / video_height) * (float)video_height;
+    rect_dest_w = aspect_ratio * rect_dest_h;
+  }
 
   rect_dest_x = (screen_width / 2.0) - (rect_dest_w / 2.0);
   rect_dest_y = (screen_height / 2.0) - (rect_dest_h / 2.0);
@@ -135,9 +143,12 @@ void Adjust_Points() {
   points[9] = final_x1;
   points[10] = final_y1;
 
+  glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, buf_vert);
   glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
+  glEnableVertexAttribArray(1);
   glBindBuffer(GL_ARRAY_BUFFER, buf_uv);
   glBufferData(
     GL_ARRAY_BUFFER,
@@ -145,6 +156,7 @@ void Adjust_Points() {
     interlaced ? uv_2p : uv_1p,
     GL_STATIC_DRAW
   );
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
 int Backend_Video_Present() {
@@ -244,6 +256,18 @@ int Backend_Video_Init() {
   glLinkProgram(shader);
 
   glGenTextures(1, &tex_screen);
+  glBindTexture(GL_TEXTURE_2D, tex_screen);
+  glTexImage2D(
+    GL_TEXTURE_2D,
+    0, // lod
+    GL_RGB,
+    400, // width
+    448, // height (* 2 for multiplayer)
+    0, // border (useless)
+    GL_BGRA,
+    GL_UNSIGNED_BYTE,
+    bitmap.data
+  );
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
@@ -280,13 +304,13 @@ int Backend_Video_ToggleFullscreen() {
 
 int Backend_Video_Update() {
   glBindTexture(GL_TEXTURE_2D, tex_screen);
-  glTexImage2D(
+  glTexSubImage2D(
     GL_TEXTURE_2D,
     0, // lod
-    GL_RGB,
+    0,
+    0,
     400, // width
     448, // height (* 2 for multiplayer)
-    0, // border (useless)
     GL_BGRA,
     GL_UNSIGNED_BYTE,
     bitmap.data
@@ -294,14 +318,6 @@ int Backend_Video_Update() {
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-  glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, buf_vert);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-  glEnableVertexAttribArray(1);
-  glBindBuffer(GL_ARRAY_BUFFER, buf_uv);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
   return 1;
 };

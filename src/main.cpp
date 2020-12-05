@@ -1,22 +1,23 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <jansson.h>
 
 #ifdef __EMSCRIPTEN__
-#include <emscripten.h>
+  #include <emscripten.h>
 #endif
 
 #ifdef ENABLE_NXLINK
-#ifdef __cplusplus
-extern "C" {
-#endif
+  #ifdef __cplusplus
+  extern "C" {
+  #endif
 
-#include "switch/runtime/devices/socket.h"
-#include "switch/runtime/nxlink.h"
+  #include "switch/runtime/devices/socket.h"
+  #include "switch/runtime/nxlink.h"
 
-#ifdef __cplusplus
-}
-#endif
+  #ifdef __cplusplus
+  }
+  #endif
 #endif
 
 #include "shared.h"
@@ -26,13 +27,16 @@ extern "C" {
 #include "inputact.h"
 
 #include "argparse.h"
-#include "portable-file-dialogs.h"
+#ifdef ENABLE_DIALOGS
+  #include "portable-file-dialogs.h"
+#endif
 
 #include "backends/sound/sound_base.h"
 short soundframe[SOUND_SAMPLES_SIZE];
 
 #include "backends/video/video_base.h"
-int mirrormode = 0;
+int option_mirrormode = 0;
+int option_scaling = 0;
 
 #include "backends/input/input_base.h"
 
@@ -56,6 +60,8 @@ STATIC_ASSERT(m68k_overflow,
 STATIC_ASSERT(z80_overflow,
               Z80_MAX_CYCLES <= UINT_MAX >> (Z80_OVERCLOCK_SHIFT + 1));
 #endif
+
+#define FRAMERATE_TARGET  59.922751013551
 
 /* Some games appear to calibrate music playback speed for PAL/NTSC by
    actually counting CPU cycles per frame during startup, resulting in
@@ -163,8 +169,6 @@ char *get_valid_filepath_jsonarray(json_t *patharr) {
 }
 
 char *get_rom_path() {
-  // if (argv[1]) return argv[1];
-
   // Ensure config.rom exists
   json_t *config_rom = json_object_get(config_json, "rom");
   if (config_rom == NULL) return NULL;
@@ -174,8 +178,6 @@ char *get_rom_path() {
 }
 
 char *get_diff_path() {
-  // if (argv[2]) return argv[2];
-
   // Ensure config.rom exists
   json_t *config_rom = json_object_get(config_json, "rom");
   if (config_rom == NULL) return NULL;
@@ -185,26 +187,40 @@ char *get_diff_path() {
   return get_valid_filepath_jsonarray(config_patchpaths);
 }
 
-int main (int argc, const char **argv) {
+int main (int argc, char *argv[]) {
   char *rom_path = NULL;
   char *diff_path = NULL;
+
+  #ifdef __EMSCRIPTEN__
+    rom_path = "/home/web_user/rom.bin";
+    diff_path = "/patch.ips";
+  #endif
+
   char *config_path = "./config.json";
 
-  struct argparse_option options[] = {
-    OPT_HELP(),
-    OPT_STRING('r', "rom", &rom_path, "Path to ROM file"),
-    OPT_STRING('p', "patch", &diff_path, "Path to IPS patch file"),
-    OPT_STRING('c', "config", &config_path, "Path to config file"),
-    OPT_END(),
-  };
-  struct argparse argparse;
-  argparse_init(&argparse, options, 0, 0);
-  argparse_describe(
-    &argparse,
-    "\nGPGX Widescreen",
-    ""
-  );
-  argc = argparse_parse(&argparse, argc, argv);
+  // This isn't just disabled cause emscripten doesnt take args (kinda)
+  // It's disabled because it causes a crash for some reason
+  #ifndef __EMSCRIPTEN__
+    struct argparse_option options[] = {
+      OPT_HELP(),
+      OPT_STRING('r', "rom", &rom_path, "Path to ROM file"),
+      OPT_STRING('p', "patch", &diff_path, "Path to IPS patch file"),
+      OPT_STRING('c', "config", &config_path, "Path to config file"),
+      OPT_END(),
+    };
+    struct argparse argparse;
+    argparse_init(&argparse, options, 0, 0);
+    argparse_describe(
+      &argparse,
+      "\nGPGX Widescreen",
+      ""
+    );
+
+    argc = argparse_parse(&argparse, argc, (const char **)argv);
+  #endif
+
+  if ((rom_path == NULL) && (argc > 1))
+    rom_path = (char *)argv[1];
 
   gettimeofday(&timeval_start, NULL);
 
@@ -216,10 +232,6 @@ int main (int argc, const char **argv) {
   /* set default config */
   error_init();
   config_load(config_path);
-
-  printf("%s\n", config_path);
-  printf("%s\n", rom_path);
-  printf("%s\n", diff_path);
 
   if (!rom_path) rom_path = get_rom_path();
   if (!diff_path) diff_path = get_diff_path();
@@ -249,32 +261,38 @@ int main (int argc, const char **argv) {
   if (config_rom == NULL) return 0;
 
   // Load rom and patch, show warning messages if any issues occur
-  json_t *config_warn_patch_missing = json_object_get(config_rom, "warn_patch_missing");
-  if (
-    (diff_path == NULL) &&
-    (config_warn_patch_missing != NULL) &&
-    json_boolean_value(config_warn_patch_missing)
-  ) {
-    pfd::message(
-      "Patch Missing", 
-      "You are missing the IPS patch for this game. Things will likely not work correctly. Check your config.json if you're looking for where to put the patch file.",
-      pfd::choice::ok,
-      pfd::icon::warning
-    );
-  }
+  #ifdef ENABLE_DIALOGS
+    json_t *config_warn_patch_missing = json_object_get(config_rom, "warn_patch_missing");
+    if (
+      (diff_path == NULL) &&
+      (config_warn_patch_missing != NULL) &&
+      json_boolean_value(config_warn_patch_missing)
+    ) {
+      pfd::message(
+        "Patch Missing", 
+        "You are missing the IPS patch for this game. Things will likely not work correctly. Check your config.json if you're looking for where to put the patch file.",
+        pfd::choice::ok,
+        pfd::icon::warning
+      );
+    }
+  #endif
 
   if((rom_path == NULL) || !load_rom(rom_path, diff_path)) {
     char caption[256];
     sprintf(caption, "Error loading file `%s'.", rom_path);
-    pfd::message(
-      "ROM Missing",
-      "You're missing a ROM file. Check your config.json if you're looking for where the ROM should be placed.",
-      pfd::choice::ok,
-      pfd::icon::error
-    );
-    #ifdef ENABLE_NXLINK
-    socketExit();
+    #ifdef ENABLE_DIALOGS
+      pfd::message(
+        "ROM Missing",
+        "You're missing a ROM file. Check your config.json if you're looking for where the ROM should be placed.",
+        pfd::choice::ok,
+        pfd::icon::error
+      );
     #endif
+  
+    #ifdef ENABLE_NXLINK
+      socketExit();
+    #endif
+
     return 1;
   }
 
@@ -378,21 +396,17 @@ int main (int argc, const char **argv) {
 
   //if (use_sound) Backend_Sound_Pause();
 
-  uint64 framerateMicroseconds = 1000000.0 / 60.0;
+  uint64 framerateMicroseconds = (1000000.0 / FRAMERATE_TARGET) / 2.0;
 
   gamehacks_init();
 
   /* emulation loop */
   #ifdef __EMSCRIPTEN__
-   emscripten_set_main_loop(&mainloop, 0, 1);
+   emscripten_set_main_loop(&mainloop, 60, 1);
   #else
+    uint32 timeNext = 0;
+    // uint32 timePrev = 0;
     while(running) {
-      mainloop();
-      
-      if (turbo_mode) continue;
-
-      uint32 timePrev;
-
       struct timeval timeval_now;
       gettimeofday(&timeval_now, NULL);
       uint32 timeNow = (
@@ -400,20 +414,10 @@ int main (int argc, const char **argv) {
         timeval_now.tv_usec-timeval_start.tv_usec
       );
 
-      uint32 timeNext = timeNow + framerateMicroseconds;
-
-      if (timeNow >= timePrev + 100) {
-        timePrev = timeNow;
-      } else {
-        if (timeNow < timeNext) {
-          #ifdef USE_NORMAL_SLEEP
-            sleep((timeNext - timeNow) / 100000.0);
-          #else
-            usleep(timeNext - timeNow);
-          #endif
-        }
-          
-        timePrev = timePrev + framerateMicroseconds;
+      if ((timeNow < timeNext) && !turbo_mode) usleep(1000);
+      else {
+        mainloop();
+        timeNext = timeNow + framerateMicroseconds;
       }
     }
 

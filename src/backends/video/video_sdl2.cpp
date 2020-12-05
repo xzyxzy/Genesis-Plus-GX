@@ -46,8 +46,8 @@ void Init_Bitmap() {
 
   sdl_bitmap = SDL_CreateRGBSurfaceWithFormat(
     0,
-    400,
-    224,
+    VIDEO_WIDTH,
+    (VIDEO_HEIGHT * 2) + 1, // idk but it stops a segfault in 2p
     SDL_BITSPERPIXEL(SURFACE_FORMAT),
     SURFACE_FORMAT
   );
@@ -71,10 +71,10 @@ int Backend_Video_Init() {
     return 0;
   }
 
-  IMG_Init(IMG_INIT_PNG);
+  // IMG_Init(IMG_INIT_PNG);
 
   uint32 window_flags = SDL_WINDOW_RESIZABLE;
-  #ifndef __EMSCRIPTEN__
+  #if !defined(SWITCH) && defined(__EMSCRIPTEN__)
   window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
   #endif
 
@@ -135,38 +135,39 @@ void Update_Viewport() {
   rect_source.w = bitmap.viewport.w + (2*bitmap.viewport.x);
   rect_source.h = bitmap.viewport.h + (2*bitmap.viewport.y);
   if (interlaced) rect_source.h += bitmap.viewport.h;
-
   rect_source.x = 0;
   rect_source.y = 0;
-  // if (rect_source.w > screen_width)
-  // {
-  //   rect_source.x = (rect_source.w - screen_width) / 2;
-  //   rect_source.w = screen_width;
-  // }
-  // if (rect_source.h > screen_height)
-  // {
-  //   rect_source.y = (rect_source.h - screen_height) / 2;
-  //   rect_source.h = screen_height;
-  // }
-
   rect_dest.h = screen_height;
 
-  if (1) { // Integer scaling
-    rect_dest.h = (rect_dest.h / VIDEO_HEIGHT) * (float)VIDEO_HEIGHT;
-    rect_dest.w = (bitmap.viewport.w / (float)bitmap.viewport.h) * rect_dest.h;
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+  if (option_scaling == 2) { // Stretch
+    rect_dest.w = screen_width;
+    rect_dest.x = 0;
+    rect_dest.y = 0;
   } else {
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    int video_height = bitmap.viewport.h;
+    if (interlaced) video_height *= 2;
+
+    float aspect_ratio = bitmap.viewport.w / (float)video_height;
+    rect_dest.w = aspect_ratio * rect_dest.h;
+
+    if (rect_dest.w > screen_width) {
+      rect_dest.w = screen_width;
+      rect_dest.h = rect_dest.w / aspect_ratio;
+    }
+
+    if (option_scaling == 1) { // Integer scaling
+      rect_dest.h = (rect_dest.h / video_height) * (float)video_height;
+      rect_dest.w = aspect_ratio * rect_dest.h;
+    }
+
+    rect_dest.x = (screen_width / 2.0) - (rect_dest.w / 2.0);
+    rect_dest.y = (screen_height / 2.0) - (rect_dest.h / 2.0);
   }
-
-  if (interlaced) rect_dest.w /= 2;
-
-  #if defined(SWITCH)
-  rect_dest.x = 0;
-  rect_dest.y = 0;
-  #else
-  rect_dest.x = (screen_width / 2.0) - (rect_dest.w / 2.0);
-  rect_dest.y = (screen_height / 2.0) - (rect_dest.h / 2.0);
+  #ifdef SWITCH // ??????? idk
+    rect_dest.w *= 0.9343065693430657;
+    rect_dest.h *= 0.9343065693430657;
+    rect_dest.x *= 0.9343065693430657;
+    rect_dest.y *= 0.9343065693430657;
   #endif
 
   /* clear destination surface */
@@ -195,7 +196,7 @@ void Update_Texture() {
 }
 
 void Update_Renderer() {
-  if (mirrormode) {
+  if (option_mirrormode) {
     SDL_RenderCopyEx(
       sdl_renderer,
       sdl_texture,
@@ -260,19 +261,20 @@ int Backend_Video_SetWindowTitle(char *caption) {
 std::map<std::string,SDL_Texture*> tex_cache;
 
 void *Backend_Video_LoadImage(char *path) {
-    std::string pathstr = path;
-    SDL_Texture *tex;
-    std::map<std::string,SDL_Texture*>::iterator it = tex_cache.find(pathstr);
-    if(it != tex_cache.end()) {
-        tex = it->second;
-    } else {
-      SDL_Surface* tmp_surface = IMG_Load(path);
-      if (!tmp_surface) return NULL;
-      tex = SDL_CreateTextureFromSurface(sdl_renderer, tmp_surface);
-      SDL_FreeSurface(tmp_surface);
-      tex_cache.insert(it,std::pair<std::string,SDL_Texture*>(pathstr,tex));
-    }
-    return (void *)tex;
+    // std::string pathstr = path;
+    // SDL_Texture *tex;
+    // std::map<std::string,SDL_Texture*>::iterator it = tex_cache.find(pathstr);
+    // if(it != tex_cache.end()) {
+    //     tex = it->second;
+    // } else {
+    //   SDL_Surface* tmp_surface = IMG_Load(path);
+    //   if (!tmp_surface) return NULL;
+    //   tex = SDL_CreateTextureFromSurface(sdl_renderer, tmp_surface);
+    //   SDL_FreeSurface(tmp_surface);
+    //   tex_cache.insert(it,std::pair<std::string,SDL_Texture*>(pathstr,tex));
+    // }
+    // return (void *)tex;
+    return NULL;
 }
 
 void *Backend_Video_GetRenderer() { return (void *)sdl_renderer; }

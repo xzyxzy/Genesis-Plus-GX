@@ -3335,7 +3335,7 @@ void render_obj_m5_ste(int line)
     }
 
     /* Display area offset */
-    xpos = xpos - 0x80 + 72;
+    xpos = xpos - 0x80;
 
     /* Sprite size */
     temp = object_info->size;
