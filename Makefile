@@ -115,7 +115,7 @@ DEFINES += \
 # =============================================================================
 
 CFLAGS += `$(PKGCONFIG) --cflags zlib vorbisfile jansson`
-LIBS   += `$(PKGCONFIG) --libs zlib vorbisfile jansson`
+LIBS   += `$(PKGCONFIG) --libs-only-l --libs-only-L zlib vorbisfile jansson`
 
 CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
 
