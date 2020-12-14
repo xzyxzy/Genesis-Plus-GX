@@ -238,7 +238,7 @@ $(OBJDIR)/%.o: %.cpp
 
 $(BINPATH): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
-	$(CXX) $(CFLAGS) $(OBJECTS) $(LIBS) -o $@ $(LDFLAGS)
+	$(CXX) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@ $(LIBS)
 	@echo " Done!"
 
 ifeq ($(BINPATH),$(PKGPATH))
