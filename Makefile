@@ -123,7 +123,7 @@ ifeq ($(STATIC),1)
 	CFLAGS += -static
 endif
 
-LDFLAGS   = $(CFLAGS)
+LDFLAGS   =
 
 DEFINES   += -DLSB_FIRST -DUSE_32BPP_RENDERING \
 			-DMAXROMSIZE=4194304 -DHAVE_NO_SPRITE_LIMIT \
@@ -238,7 +238,7 @@ $(OBJDIR)/%.o: %.cpp
 
 $(BINPATH): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
-	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+	$(CXX) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@ $(LIBS)
 	@echo " Done!"
 
 ifeq ($(BINPATH),$(PKGPATH))

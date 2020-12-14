@@ -52,7 +52,13 @@ void Init_Bitmap() {
     SURFACE_FORMAT
   );
 
-  sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, sdl_bitmap);
+  sdl_texture = SDL_CreateTexture(
+    sdl_renderer, 
+    SURFACE_FORMAT, 
+    SDL_TEXTUREACCESS_STREAMING,
+    VIDEO_WIDTH,
+    (VIDEO_HEIGHT * 2) + 1
+  );
   SDL_SetTextureBlendMode(sdl_texture, SDL_BLENDMODE_BLEND);
 
   SDL_LockSurface(sdl_bitmap);
@@ -116,8 +122,6 @@ void Update_Viewport() {
   if (!(bitmap.viewport.changed & 1)) return;
 
   /* viewport size changed */
-  sdl_winsurf  = SDL_GetWindowSurface(sdl_window);
-
   #if defined(SWITCH) || defined(MACOS)
   screen_width = 1280;
   screen_height = 720;
@@ -125,8 +129,11 @@ void Update_Viewport() {
   screen_width = 960;
   screen_height = 544;
   #else
-  screen_width = sdl_winsurf->w;
-  screen_height = sdl_winsurf->h;
+  SDL_Rect window_rect = { .x = 0, .y = 0 };
+  SDL_GetWindowSize(sdl_window, &window_rect.w, &window_rect.h);
+
+  screen_width = window_rect.w;
+  screen_height = window_rect.h;
   #endif
 
   bitmap.viewport.changed &= ~1;
@@ -170,8 +177,7 @@ void Update_Viewport() {
     rect_dest.y *= 0.9343065693430657;
   #endif
 
-  /* clear destination surface */
-  SDL_FillRect(sdl_winsurf, 0, 0);
+  // TODO: Clear window contents without relying on "SDL_GetWindowSurface".
 }
 
 void Update_Texture() {
