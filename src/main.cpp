@@ -1,4 +1,6 @@
-#include <sys/time.h>
+#include <time.h>
+#include <errno.h>
+
 #include <sys/stat.h>
 #include <limits.h>
 #include <jansson.h>
@@ -146,8 +148,6 @@ void mainloop() {
   if (use_sound) Backend_Sound_Update(sound_update_size);
 }
 
-static struct timeval timeval_start;
-
 char *get_valid_filepath_jsonarray(json_t *patharr) {
   if (patharr == NULL) return NULL;
   if (!json_is_array(patharr)) return NULL;
@@ -221,8 +221,6 @@ int main (int argc, char *argv[]) {
 
   if ((rom_path == NULL) && (argc > 1))
     rom_path = (char *)argv[1];
-
-  gettimeofday(&timeval_start, NULL);
 
   #ifdef ENABLE_NXLINK
   socketInitializeDefault();
@@ -396,7 +394,7 @@ int main (int argc, char *argv[]) {
 
   //if (use_sound) Backend_Sound_Pause();
 
-  uint64 framerateMicroseconds = (1000000.0 / FRAMERATE_TARGET) / 2.0;
+  long updatePeriod_nsec = (1000000000.0L / FRAMERATE_TARGET);
 
   gamehacks_init();
 
@@ -404,20 +402,29 @@ int main (int argc, char *argv[]) {
   #ifdef __EMSCRIPTEN__
    emscripten_set_main_loop(&mainloop, 60, 1);
   #else
-    uint32 timeNext = 0;
-    // uint32 timePrev = 0;
-    while(running) {
-      struct timeval timeval_now;
-      gettimeofday(&timeval_now, NULL);
-      uint32 timeNow = (
-        (timeval_now.tv_sec-timeval_start.tv_sec)*1000000 + 
-        timeval_now.tv_usec-timeval_start.tv_usec
-      );
+    timespec timeAfter, timeBefore;
 
-      if ((timeNow < timeNext) && !turbo_mode) usleep(1000);
-      else {
-        mainloop();
-        timeNext = timeNow + framerateMicroseconds;
+    while(running) {
+      clock_gettime(CLOCK_MONOTONIC, &timeBefore);
+      mainloop();
+      clock_gettime(CLOCK_MONOTONIC, &timeAfter);
+
+      timespec deltaSpec = {
+        .tv_sec = timeAfter.tv_sec - timeBefore.tv_sec,
+        .tv_nsec = timeAfter.tv_nsec - timeBefore.tv_nsec
+      };
+
+      if (deltaSpec.tv_nsec < 0) {
+          --deltaSpec.tv_sec;
+          deltaSpec.tv_nsec += 1000000000L;
+      }
+
+      if (!turbo_mode && ((updatePeriod_nsec - deltaSpec.tv_nsec) > 0)) {
+        deltaSpec.tv_nsec = updatePeriod_nsec - deltaSpec.tv_nsec;
+
+        while ( nanosleep(&deltaSpec, &deltaSpec) == EINTR ) {
+          /* Keep running "nanosleep" in case interrupt signal was received */;
+        }
       }
     }
 
