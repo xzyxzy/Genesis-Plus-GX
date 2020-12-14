@@ -667,9 +667,29 @@ void vdp_dma_update(unsigned int cycles)
     if (!dma_length)
     {
       /* DMA source address registers are incremented during DMA (even DMA Fill) */
-      uint16 end = reg[21] + (reg[22] << 8) + reg[19] + (reg[20] << 8);
-      reg[21] = end & 0xff;
-      reg[22] = end >> 8;
+      #ifdef VDP_FIX_DMA_BOUNDARY_BUG
+        /* 
+         * NOTICE: VDP has a hardware bug where DMA transfer source address is not incremented properly,
+         * causing the transfer to wrap around 128kb memory boundaries.
+         *
+         * Only the lower 2 bytes of source address are incremented (which are stored in VDP registers 
+         * #21 and #22 respectively), while the higher bits are never changed (VDP register #23).
+         * This way, when the lower 2 bytes overflow upon increment, the transfer will wrap to the 
+         * beginning of memory area represented by the higher bits.
+         *
+         * This fix updates Register #23 properly, so next target address is calculated correctly.
+         */
+        const uint32 length = reg[19] + (reg[20] << 8);
+        const uint32 start = reg[21] + (reg[22] << 8) + ((uint32)(reg[23] & 0x3F) << 16);
+        const uint32 end = start + length;
+        reg[21] = end & 0xff;
+        reg[22] = (end >> 8) & 0xff;
+        reg[23] = (reg[23] & 0xC0) | ((end >> 16) & 0x3F);
+      #else
+        uint16 end = reg[21] + (reg[22] << 8) + reg[19] + (reg[20] << 8);
+        reg[21] = end & 0xff;
+        reg[22] = end >> 8;
+      #endif
 
       /* DMA length registers are decremented during DMA */
       reg[19] = reg[20] = 0;
@@ -2998,8 +3018,10 @@ static void vdp_dma_68k_ext(unsigned int length)
     /* Increment source address */
     source += 2;
 
-    /* 128k DMA window */
-    source = (reg[23] << 17) | (source & 0x1FFFF);
+    #ifndef VDP_FIX_DMA_BOUNDARY_BUG
+      /* 128k DMA window */
+      source = (reg[23] << 17) | (source & 0x1FFFF);
+    #endif
 
     /* Write data word to VRAM, CRAM or VSRAM */
     vdp_bus_w(data);
