@@ -23,6 +23,8 @@ int Backend_Video_Present();
 int Backend_Video_SetWindowTitle(char *caption);
 void *Backend_Video_LoadImage(char *path);
 void *Backend_Video_GetRenderer();
+int Backend_Video_SetVsync(int vsync);
+int Backend_Video_GetRefreshRate();
 
 #ifdef __cplusplus
 }

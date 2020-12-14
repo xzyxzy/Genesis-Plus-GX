@@ -113,3 +113,6 @@ int Backend_Video_Clear() {
   SDL_FillRect(sdl_video.surf_screen, 0, 0);
   return 1;
 }
+
+int Backend_Video_SetVsync(int vsync) { return -1 };
+int Backend_Video_GetRefreshRate()  { return -1 };

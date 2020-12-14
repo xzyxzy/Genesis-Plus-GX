@@ -338,3 +338,6 @@ void *Backend_Video_LoadImage(char *path) {
 void *Backend_Video_GetRenderer() {
   return NULL;
 };
+
+int Backend_Video_SetVsync(int vsync) { return -1 };
+int Backend_Video_GetRefreshRate()  { return -1 };

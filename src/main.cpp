@@ -63,7 +63,7 @@ STATIC_ASSERT(z80_overflow,
               Z80_MAX_CYCLES <= UINT_MAX >> (Z80_OVERCLOCK_SHIFT + 1));
 #endif
 
-#define FRAMERATE_TARGET  59.922751013551
+#define FRAMERATE_TARGET  59.92
 
 /* Some games appear to calibrate music playback speed for PAL/NTSC by
    actually counting CPU cycles per frame during startup, resulting in
@@ -77,6 +77,7 @@ int log_error   = 0;
 int debug_on    = 0;
 int turbo_mode  = 0;
 int use_sound   = 1;
+bool vsync_on = false;
 
 static uint8 brm_format[0x40] =
 {
@@ -324,7 +325,16 @@ int main (int argc, char *argv[]) {
 #endif
 
   /* initialize system hardware */
-  audio_init(SOUND_FREQUENCY, 0);
+  int framerate = Backend_Video_GetRefreshRate();
+  vsync_on = true;
+  if (abs(framerate - FRAMERATE_TARGET) > 1.0) {
+    framerate = FRAMERATE_TARGET;
+    vsync_on = false;
+  }
+  Backend_Video_SetVsync(vsync_on);
+  printf("%i\n", vsync_on);
+
+  audio_init(SOUND_FREQUENCY, framerate);
   system_init();
 
   /* Mega CD specific */
@@ -419,7 +429,9 @@ int main (int argc, char *argv[]) {
           deltaSpec.tv_nsec += 1000000000L;
       }
 
-      if (!turbo_mode && ((updatePeriod_nsec - deltaSpec.tv_nsec) > 0)) {
+      Backend_Video_SetVsync(vsync_on && !turbo_mode);
+
+      if (!turbo_mode && !vsync_on && ((updatePeriod_nsec - deltaSpec.tv_nsec) > 0)) {
         deltaSpec.tv_nsec = updatePeriod_nsec - deltaSpec.tv_nsec;
 
         while ( nanosleep(&deltaSpec, &deltaSpec) == EINTR ) {

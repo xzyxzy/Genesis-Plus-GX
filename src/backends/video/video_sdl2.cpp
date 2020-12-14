@@ -284,3 +284,32 @@ void *Backend_Video_LoadImage(char *path) {
 }
 
 void *Backend_Video_GetRenderer() { return (void *)sdl_renderer; }
+
+int vsync_prev = 0;
+
+int Backend_Video_SetVsync(int vsync) {
+  if (vsync == vsync_prev) return vsync;
+  vsync_prev = vsync;
+
+  SDL_SetHintWithPriority(
+    SDL_HINT_RENDER_VSYNC,
+    vsync ? "1" : "0",
+    SDL_HINT_OVERRIDE
+  );
+  return vsync;
+}
+
+int Backend_Video_GetRefreshRate() {
+  // https://davidgow.net/handmadepenguin/ch18.html
+  SDL_DisplayMode mode;
+  int displayIndex = SDL_GetWindowDisplayIndex(sdl_window);
+  // If we can't find the refresh rate, we'll return this:
+  int defaultRefreshRate = 60;
+  if (SDL_GetDesktopDisplayMode(displayIndex, &mode) != 0)
+      return defaultRefreshRate;
+
+  if (mode.refresh_rate == 0)
+      return defaultRefreshRate;
+
+  return mode.refresh_rate;
+}
