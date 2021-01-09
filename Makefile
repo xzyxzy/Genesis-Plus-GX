@@ -35,6 +35,7 @@ DEBUG	 ?= 0
 STATIC	 ?= 1
 VERBOSE  ?= 0
 PROFILE	 ?= 0
+STRIP	 ?= strip
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -77,6 +78,7 @@ endif
 ifeq ($(DEBUG),1)
 	CFLAGS += -g
 	DEFINES += -DDEBUG
+	STRIP = :
 else
 	CFLAGS += -O3
 endif
@@ -240,6 +242,7 @@ $(BINPATH): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
 	$(CXX) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@ $(LIBS)
 	@echo " Done!"
+	$(STRIP) $@
 
 ifeq ($(BINPATH),$(PKGPATH))
 all: $(BINPATH)

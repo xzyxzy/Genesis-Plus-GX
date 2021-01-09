@@ -39,6 +39,7 @@
 
 #include "shared.h"
 #include "blip_buf.h"
+#include "sound_base.h"
 
 /* YM2612 internal clock = input clock / 6 = (master clock / 7) / 6 */
 #define YM2612_CLOCK_RATIO (7*6)
@@ -372,6 +373,8 @@ void sound_reset(void)
   
   /* reset FM cycle counters */
   fm_cycles_start = fm_cycles_count = 0;
+
+  Backend_Sound_StopMusic();
 }
 
 int sound_update(unsigned int cycles)

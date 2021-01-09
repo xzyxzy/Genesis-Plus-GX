@@ -125,7 +125,61 @@ static void update_overclock(void)
 }
 #endif
 
+#ifdef __EMSCRIPTEN__
+  #define PATH_SRAM_ROOT "/home/web_user/"
+#else
+  #define PATH_SRAM_ROOT "./"
+#endif
+
 int running = 1;
+
+#define SRAM_AUTOWRITE_INTERVAL 60 * 30 // In frames
+int sram_autowrite_timer = 0;
+
+extern "C" {
+
+void sram_write() {
+  FILE *fp;
+
+  if (sram.on) {
+    /* save SRAM */
+    fp = fopen(PATH_SRAM_ROOT "game.srm", "wb");
+    if (fp != NULL) {
+      fwrite(sram.sram,0x10000,1, fp);
+      fclose(fp);
+    }
+  }
+
+  if (system_hw == SYSTEM_MCD) {
+    /* save internal backup RAM (if formatted) */
+    if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20)) {
+      fp = fopen(PATH_SRAM_ROOT "scd.brm", "wb");
+      if (fp!=NULL) {
+        fwrite(scd.bram, 0x2000, 1, fp);
+        fclose(fp);
+      }
+    }
+
+    /* save cartridge backup RAM (if formatted) */
+    if (scd.cartridge.id) {
+      if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20)) {
+        fp = fopen(PATH_SRAM_ROOT "cart.brm", "wb");
+        if (fp!=NULL) {
+          fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
+          fclose(fp);
+        }
+      }
+    }
+  }
+
+	#ifdef __EMSCRIPTEN__
+		EM_ASM(
+			FS.syncfs(function (err) { console.log(err); });
+		);
+	#endif
+}
+
+}
 
 void mainloop() {
   Backend_Input_MainLoop();
@@ -147,6 +201,11 @@ void mainloop() {
   Backend_Video_Present();
   int sound_update_size = audio_update(soundframe) * 2;
   if (use_sound) Backend_Sound_Update(sound_update_size);
+
+  if (++sram_autowrite_timer >= SRAM_AUTOWRITE_INTERVAL) {
+    sram_autowrite_timer = 0;
+    sram_write();
+  }
 }
 
 char *get_valid_filepath_jsonarray(json_t *patharr) {
@@ -325,7 +384,7 @@ int main (int argc, char *argv[]) {
 #endif
 
   /* initialize system hardware */
-  int framerate = Backend_Video_GetRefreshRate();
+  double framerate = Backend_Video_GetRefreshRate();
   vsync_on = true;
   if (abs(framerate - FRAMERATE_TARGET) > 1.0) {
     framerate = FRAMERATE_TARGET;
@@ -341,7 +400,7 @@ int main (int argc, char *argv[]) {
   if (system_hw == SYSTEM_MCD)
   {
     /* load internal backup RAM */
-    fp = fopen("./scd.brm", "rb");
+    fp = fopen(PATH_SRAM_ROOT "scd.brm", "rb");
     if (fp!=NULL)
     {
       fread(scd.bram, 0x2000, 1, fp);
@@ -365,7 +424,7 @@ int main (int argc, char *argv[]) {
     /* load cartridge backup RAM */
     if (scd.cartridge.id)
     {
-      fp = fopen("./cart.brm", "rb");
+      fp = fopen(PATH_SRAM_ROOT "cart.brm", "rb");
       if (fp!=NULL)
       {
         fread(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
@@ -391,7 +450,7 @@ int main (int argc, char *argv[]) {
   if (sram.on)
   {
     /* load SRAM */
-    fp = fopen("./game.srm", "rb");
+    fp = fopen(PATH_SRAM_ROOT "game.srm", "rb");
     if (fp!=NULL)
     {
       fread(sram.sram,0x10000,1, fp);
@@ -440,44 +499,7 @@ int main (int argc, char *argv[]) {
       }
     }
 
-    if (system_hw == SYSTEM_MCD)
-    {
-      /* save internal backup RAM (if formatted) */
-      if (!memcmp(scd.bram + 0x2000 - 0x20, brm_format + 0x20, 0x20))
-      {
-        fp = fopen("./scd.brm", "wb");
-        if (fp!=NULL)
-        {
-          fwrite(scd.bram, 0x2000, 1, fp);
-          fclose(fp);
-        }
-      }
-
-      /* save cartridge backup RAM (if formatted) */
-      if (scd.cartridge.id)
-      {
-        if (!memcmp(scd.cartridge.area + scd.cartridge.mask + 1 - 0x20, brm_format + 0x20, 0x20))
-        {
-          fp = fopen("./cart.brm", "wb");
-          if (fp!=NULL)
-          {
-            fwrite(scd.cartridge.area, scd.cartridge.mask + 1, 1, fp);
-            fclose(fp);
-          }
-        }
-      }
-    }
-
-    if (sram.on)
-    {
-      /* save SRAM */
-      fp = fopen("./game.srm", "wb");
-      if (fp!=NULL)
-      {
-        fwrite(sram.sram,0x10000,1, fp);
-        fclose(fp);
-      }
-    }
+    sram_write();
 
     gamehacks_deinit();
 
@@ -495,3 +517,13 @@ int main (int argc, char *argv[]) {
   
   return 0;
 }
+
+#ifdef __EMSCRIPTEN__
+extern "C" { // For calling from JS in Emscripten
+
+int emscripten_main(int argc, char *argv[]) {
+  return main(argc, argv);
+}
+
+}
+#endif

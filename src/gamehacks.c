@@ -3,6 +3,19 @@
 #include "backends/video/video_base.h"
 #include "cpuhook.h"
 
+#define GameModeID_SegaScreen       0x0
+#define GameModeID_TitleScreen      0x4
+#define GameModeID_Demo     		0x8
+#define GameModeID_Level        	0xC
+#define GameModeID_SpecialStage     0x10
+#define GameModeID_ContinueScreen   0x14
+#define GameModeID_2PResults        0x18
+#define GameModeID_2PLevelSelect    0x1C
+#define GameModeID_EndingSequence   0x20
+#define GameModeID_OptionsMenu      0x24
+#define GameModeID_LevelSelect      0x28
+#define GameModeID_Mask_TitleCard   0b01111111
+
 #define mQueue 0xEEC2
 #define mFlags 0xEEB0+1
 #define Current_Zone 0xFB90-1
@@ -10,8 +23,8 @@
 #define Game_Mode 0xF370+1
 #define SSTrack_anim 0xDCAA+1
 #define SS_Cur_Speed_Factor 0xDCB8-1
-#define Option_Emulator_Scaling 0xFCFE +1
-#define Option_Emulator_MirrorMode 0xFCFF-1
+#define Option_Emulator_Scaling 0xFD3F-1
+#define Option_Emulator_MirrorMode 0xFD36+1
 
 #define mQueue_0 mQueue // music
 #define mQueue_1 mQueue+1 // cmd
@@ -154,8 +167,13 @@ void gamehacks_update_options() {
         bitmap.viewport.changed |= 1;
         option_scaling_prev = option_scaling;
     }
-    option_mirrormode = work_ram[Option_Emulator_MirrorMode];
-
+    uint8 gamemode = work_ram[Game_Mode];
+    gamemode &= GameModeID_Mask_TitleCard;
+    option_mirrormode = work_ram[Option_Emulator_MirrorMode] && (
+        (gamemode == GameModeID_Demo) |
+        (gamemode == GameModeID_Level) |
+        (gamemode == GameModeID_SpecialStage)
+    );
 }
 
 void gamehacks_update() {

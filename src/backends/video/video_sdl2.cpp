@@ -8,6 +8,10 @@
 #include <SDL2/SDL_image.h>
 #include "shared.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #if defined(USE_8BPP_RENDERING)
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB332
 #elif defined(USE_15BPP_RENDERING)
@@ -80,7 +84,7 @@ int Backend_Video_Init() {
   // IMG_Init(IMG_INIT_PNG);
 
   uint32 window_flags = SDL_WINDOW_RESIZABLE;
-  #if !defined(SWITCH) && defined(__EMSCRIPTEN__)
+  #if !defined(SWITCH)
   window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
   #endif
 
@@ -112,7 +116,11 @@ int Backend_Video_Init() {
   return 1;
 }
 
+bool needs_clear = false;
+
 int Backend_Video_Clear() {
+  if (!needs_clear) return 0;
+  needs_clear = false;
   SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(sdl_renderer);
   return 1;
@@ -121,19 +129,16 @@ int Backend_Video_Clear() {
 void Update_Viewport() {
   if (!(bitmap.viewport.changed & 1)) return;
 
-  /* viewport size changed */
-  #if defined(SWITCH) || defined(MACOS)
-  screen_width = 1280;
-  screen_height = 720;
-  #elif defined(__vita__)
-  screen_width = 960;
-  screen_height = 544;
-  #else
   SDL_Rect window_rect = { .x = 0, .y = 0 };
   SDL_GetWindowSize(sdl_window, &window_rect.w, &window_rect.h);
 
   screen_width = window_rect.w;
   screen_height = window_rect.h;
+
+  #ifdef __EMSCRIPTEN__
+  double dpi = emscripten_get_device_pixel_ratio();
+  screen_width *= dpi;
+  screen_height *= dpi;
   #endif
 
   bitmap.viewport.changed &= ~1;
@@ -170,14 +175,8 @@ void Update_Viewport() {
     rect_dest.x = (screen_width / 2.0) - (rect_dest.w / 2.0);
     rect_dest.y = (screen_height / 2.0) - (rect_dest.h / 2.0);
   }
-  #ifdef SWITCH // ??????? idk
-    rect_dest.w *= 0.9343065693430657;
-    rect_dest.h *= 0.9343065693430657;
-    rect_dest.x *= 0.9343065693430657;
-    rect_dest.y *= 0.9343065693430657;
-  #endif
 
-  // TODO: Clear window contents without relying on "SDL_GetWindowSurface".
+  needs_clear = true;
 }
 
 void Update_Texture() {
