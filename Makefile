@@ -210,8 +210,7 @@ SOURCES	+=	src/main \
 			src/unzip \
 			src/fileio \
 			src/ips \
-			src/inputact \
-			src/gamehacks
+			src/inputact
 
 # Main Sources
 SOURCES	+=	lib/argparse/argparse

@@ -53,7 +53,6 @@
       }
 
       #container {
-        font-family: 'sonic2systemregular';
         color:white;
         text-shadow: 3px 3px black;
         line-height: 150%;
@@ -82,26 +81,8 @@
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" style="z-index:-9999;"></canvas>
 
     <div id="container">
-        <img src="./sonic2.png" /><br>
-        <img src="./wait.gif" />
-        <br>
-        <br>
-
         <div id="section_upload" style="display:none">
-            You need to upload a legitimate Sonic 2 ROM. (REV01)<br>
-            You can get this by <a href="https://store.steampowered.com/app/71163/Sonic_The_Hedgehog_2/">buying the game on Steam.</a><br>
-            After that, it should be at one of these locations:<br>
-            <br>
-            <span style="font-size:8px">
-                    Windows: C:\Program Files (x86)\Steam\steamapps\common\Sega Classics\uncompressed ROMs\SONIC2_W.68K<br>
-                    macOS: ~/Library/Application Support/Steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K<br>
-                    Linux: ~/.steam/steam/steamapps/common/Sega Classics/uncompressed ROMs/SONIC2_W.68K<br>
-                    <br>
-                    <span style="color:grey">MD5: 9feeb724052c39982d432a7851c98d3e</span><br>
-                    <span style="color:grey">SHA1: 8bca5dcef1af3e00098666fd892dc1c2a76333f9</span><br>
-            </span>
-
-            <br>
+            Upload a ROM.<br>
             <input type="file" id="rom_upload" />
         </div>
     
@@ -116,7 +97,7 @@
       var progressElement = document.getElementById('progress');
 
       var Module = {
-        arguments: ["/home/web_user/rom.bin", "/patch.ips"],
+        arguments: ["/home/web_user/rom.bin"],
         noInitialRun: true,
         preRun: [],
         postRun: [],
@@ -185,10 +166,6 @@
             Module._main();
         }
 
-        function WrongChecksum() {
-            alert("Wrong ROM file!");
-        }
-
         function ShowUpload() {
             $("#section_upload").show();
         }
@@ -199,23 +176,18 @@
 
         FS.mount(IDBFS, {}, '/home/web_user');
         FS.syncfs(true, err => {
-            try {
-                FS.stat("/home/web_user/rom.bin");
-                ShowStart();
-            } catch {
-                ShowUpload();
-            }
+            // try {
+            //     FS.stat("/home/web_user/rom.bin");
+            //     ShowStart();
+            // } catch {
+            // }
+            ShowUpload();
         });
 
         let $rom_upload = $("#rom_upload");
         $rom_upload.change(() => {
             $rom_upload[0].files[0].arrayBuffer().then(buffer => {
                 let fileArr = new Uint8Array(buffer);
-
-                if (md5(fileArr) != "9feeb724052c39982d432a7851c98d3e") {
-                    WrongChecksum();
-                    return;
-                }
 
                 FS.writeFile(
                     "/home/web_user/rom.bin",

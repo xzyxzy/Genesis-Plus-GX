@@ -159,6 +159,7 @@ const char *config_default = "{ \
     \"rom\": { \
         \"paths\": [], \
         \"paths_patch\": [] \
+		\"warn_patch_missing\": false \
     } \
 }";
 

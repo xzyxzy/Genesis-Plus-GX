@@ -42,8 +42,6 @@ int option_scaling = 0;
 
 #include "backends/input/input_base.h"
 
-#include "gamehacks.h"
-
 #define STATIC_ASSERT(name, test) typedef struct { int assert_[(test)?1:-1]; } assert_ ## name ## _
 #define M68K_MAX_CYCLES 1107
 #define Z80_MAX_CYCLES 345
@@ -183,7 +181,6 @@ void sram_write() {
 
 void mainloop() {
   Backend_Input_MainLoop();
-  gamehacks_update();
 
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
@@ -191,7 +188,6 @@ void mainloop() {
         update_overclock();
   #endif
   Backend_Video_Clear();
-  gamehacks_render();
 
   if (system_hw == SYSTEM_MCD) system_frame_scd(0);
   else if ((system_hw & SYSTEM_PBC) == SYSTEM_MD) system_frame_gen(0);
@@ -465,8 +461,6 @@ int main (int argc, char *argv[]) {
 
   long updatePeriod_nsec = (1000000000.0L / FRAMERATE_TARGET);
 
-  gamehacks_init();
-
   /* emulation loop */
   #ifdef __EMSCRIPTEN__
    emscripten_set_main_loop(&mainloop, 60, 1);
@@ -500,8 +494,6 @@ int main (int argc, char *argv[]) {
     }
 
     sram_write();
-
-    gamehacks_deinit();
 
     audio_shutdown();
     error_shutdown();
