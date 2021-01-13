@@ -182,6 +182,16 @@ void sram_write() {
 void mainloop() {
   Backend_Input_MainLoop();
 
+  if (!Backend_Video_GetActive()) {
+      timespec spec = {
+        .tv_sec = 0,
+        .tv_nsec = 10000000
+      };
+      nanosleep(&spec, &spec);
+      return;
+  }
+  gamehacks_update();
+
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
     if (overclock_delay && --overclock_delay == 0)
