@@ -12,7 +12,7 @@ jobs:
     container: devkitpro/devkita64:20200730
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v1
       with:
         submodules: 'recursive'
     - name: make clean
