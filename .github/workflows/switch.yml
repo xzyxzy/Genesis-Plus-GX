@@ -8,40 +8,9 @@ on:
 
 jobs:
   build:
-
-    runs-on: windows-2019
-
-    defaults:
-      run:
-        shell: msys2 {0}
-    env:
-      DEVKITPRO: /opt/devkitpro
-      DEVKITARM: /opt/devkitpro/devkitARM
-      DEVKITPPC: /opt/devkitpro/devkitPPC
+    runs-on: ubuntu-20.04
+    container: devkitpro/devkita64:20200730
     steps:
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          base-devel
-          git
-    - name: Install devkitPro Keys
-      run: |
-        pacman-key --recv BC26F752D25B92CE272E0F44F7FD5492264BB9D0 --keyserver keyserver.ubuntu.com
-        pacman-key --lsign BC26F752D25B92CE272E0F44F7FD5492264BB9D0
-        pacman -U https://downloads.devkitpro.org/devkitpro-keyring.pkg.tar.xz --noconfirm
-        echo "" >> /etc/pacman.conf
-        echo "[dkp-libs]" >> /etc/pacman.conf
-        echo "Server = https://downloads.devkitpro.org/packages" >> /etc/pacman.conf
-        echo "" >> /etc/pacman.conf
-        echo "[dkp-windows]" >> /etc/pacman.conf
-        echo "Server = https://downloads.devkitpro.org/packages/windows" >> /etc/pacman.conf
-    - name: Update pacman
-      run: pacman -Syu --noconfirm
-    - name: Install Switch dev packages
-      run: pacman -S switch-dev switch-sdl2 switch-sdl2_image switch-opusfile switch-mpg123 switch-flac switch-libvorbis switch-libopus switch-jansson --noconfirm
     - name: Checkout repo
       uses: actions/checkout@v2
     - name: Checkout submodules
