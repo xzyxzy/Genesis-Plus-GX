@@ -23,6 +23,7 @@ jobs:
         install: >-
           base-devel
           git
+          mingw-w64-i686-binutils
           mingw-w64-i686-SDL2
           mingw-w64-i686-SDL2_image
           mingw-w64-i686-opus
