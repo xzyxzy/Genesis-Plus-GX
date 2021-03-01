@@ -1,0 +1,57 @@
+name: Nintendo Switch
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: windows-2019
+
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      DEVKITPRO: /opt/devkitpro
+      DEVKITARM: /opt/devkitpro/devkitARM
+      DEVKITPPC: /opt/devkitpro/devkitPPC
+    steps:
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          base-devel
+          git
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
+    - name: Install devkitPro Keys
+      run: |
+        pacman-key --recv BC26F752D25B92CE272E0F44F7FD5492264BB9D0 --keyserver keyserver.ubuntu.com
+        pacman-key --lsign BC26F752D25B92CE272E0F44F7FD5492264BB9D0
+        pacman -U https://downloads.devkitpro.org/devkitpro-keyring.pkg.tar.xz
+        echo "" >> /etc/pacman.conf
+        echo "[dkp-libs]" >> /etc/pacman.conf
+        echo "Server = https://downloads.devkitpro.org/packages" >> /etc/pacman.conf
+        echo "" >> /etc/pacman.conf
+        echo "[dkp-windows]" >> /etc/pacman.conf
+        echo "Server = https://downloads.devkitpro.org/packages/windows" >> /etc/pacman.conf
+    - name: Update pacman
+      run: pacman -Syu
+    - name: Install Switch dev packages
+      run: pacman -S switch-dev switch-sdl2 switch-sdl2_image switch-opusfile switch-mpg123 switch-flac switch-libvorbis switch-libopus switch-jansson
+    - name: make clean
+      run: make clean
+    - name: make 
+      run: make PLATFORM=Switch
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifacts
+        path: bin/
