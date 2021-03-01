@@ -1,5 +1,9 @@
 # GPGX Wide
 
+[![Windows](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/windows.yml/badge.svg)](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/windows.yml)
+[![Linux](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/linux.yml/badge.svg)](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/linux.yml)
+[![Nintendo Switch](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/switch.yml/badge.svg)](https://github.com/heyjoeway/Genesis-Plus-GX/actions/workflows/switch.yml)
+
 This is a fork of the Genesis Plus GX emulator (https://github.com/ekeeke/Genesis-Plus-GX) that is meant to run classic Sonic games (and possibly other titles, with ROM modifications) in 16:9 widescreen. Specifically, it's meant to run with [this hack of Sonic 2](https://github.com/heyjoeway/s2disasm).
 
 This project has strayed pretty far from base repository. It has a complete restructuring of the file layout, only supports building standalone emulators (with a completely rewritten makefile), has custom backends for input, sound, and rendering, and has a plethora of new features. Those include:
