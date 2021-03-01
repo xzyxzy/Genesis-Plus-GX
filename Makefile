@@ -37,7 +37,7 @@ VERBOSE  ?= 0
 PROFILE	 ?= 0
 STRIP	 ?= strip
 
-CFLAGS += -msse4.1
+CFLAGS += -fpermissive # portable-file-dialogs is fucked up
 
 # =============================================================================
 # Detect default platform if not explicitly specified
