@@ -35,8 +35,8 @@ jobs:
           mingw-w64-i686-jansson
     - name: Checkout repo
       uses: actions/checkout@v2
-    - name: Checkout submodules
-      run: git submodule update --init --recursive
+      with:
+        submodules: 'recursive'
     - name: make clean
       run: make clean
     - name: make
