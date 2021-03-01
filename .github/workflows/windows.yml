@@ -1,0 +1,46 @@
+name: Windows
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: windows-2019
+
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW32
+        update: true
+        install: >-
+          base-devel
+          git
+          mingw-w64-i686-SDL2
+          mingw-w64-i686-SDL2_image
+          mingw-w64-i686-opus
+          mingw-w64-i686-opusfile
+          mingw-w64-i686-mpg123
+          mingw-w64-i686-flac
+          mingw-w64-i686-libvorbis
+          mingw-w64-i686-jansson
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      uses: textbook/git-checkout-submodule-action@2.1.1
+    - name: make clean
+      run: make clean
+    - name: make
+      run: make
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifact
+        path: bin/
