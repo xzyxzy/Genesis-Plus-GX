@@ -43,15 +43,18 @@ STRIP	 ?= strip
 
 ifeq ($(OS),Windows_NT)
 	PLATFORM ?= Windows
+	ARCH ?= $(shell gcc -dumpmachine)
 else
 	UNAME_S := $(shell uname -s)
 
 	ifeq ($(UNAME_S),Linux)
 		PLATFORM ?= Linux
+		ARCH ?= $(shell gcc -dumpmachine)
 	endif
 
 	ifeq ($(UNAME_S),Darwin)
 		PLATFORM ?= macOS
+		ARCH ?= $(shell gcc -dumpmachine)
 	endif
 
 endif
@@ -66,6 +69,11 @@ PLATFORM ?= Unknown
 
 OUTDIR = bin/$(PLATFORM)
 OBJDIR = objects/$(PLATFORM)
+
+ifdef ARCH
+	OUTDIR := $(OUTDIR)/$(ARCH)
+	OBJDIR := $(OBJDIR)/$(ARCH)
+endif
 
 include Makefile_cfgs/Platforms/$(PLATFORM).cfg
 
