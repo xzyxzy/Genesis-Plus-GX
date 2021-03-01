@@ -110,10 +110,7 @@ const char *config_default = "{ \
                 \"12\": [\"pad_1_up\"], \
                 \"13\": [\"pad_1_down\"], \
                 \"14\": [\"pad_1_left\"], \
-                \"15\": [\"pad_1_right\"], \
-                \"analog\": { \
-                    \"deadzone\": 10000 \
-                } \
+                \"15\": [\"pad_1_right\"] \
             }, \
             \"2\": { \
                 \"1\": [\"pad_2_a\"], \
@@ -124,10 +121,7 @@ const char *config_default = "{ \
                 \"12\": [\"pad_2_up\"], \
                 \"13\": [\"pad_2_down\"], \
                 \"14\": [\"pad_2_left\"], \
-                \"15\": [\"pad_2_right\"], \
-                \"analog\": { \
-                    \"deadzone\": 10000 \
-                } \
+                \"15\": [\"pad_2_right\"] \
             } \
         }, \
         \"keyboard\": {  \
@@ -157,9 +151,33 @@ const char *config_default = "{ \
         } \
     }, \
     \"rom\": { \
-        \"paths\": [], \
-        \"paths_patch\": [] \
-		\"warn_patch_missing\": false \
+        \"paths\": [ \
+            \"./rom.bin\" \
+        ], \
+        \"paths_patch\": [\"./patch.ips\"], \
+        \"warn_patch_missing\": false \
+    }, \
+    \"system\": { \
+        \"confirm_reset\": true, \
+        \"confirm_quit\": true, \
+        \"psg_preamp\": 150, \
+        \"fm_preamp\": 100, \
+        \"hq_fm\": true, \
+        \"hq_psg\": true, \
+        \"filter\": 0, \
+        \"low_freq\": 200, \
+        \"high_freq\": 8000, \
+        \"lg\": 100, \
+        \"mg\": 100, \
+        \"hg\": 100, \
+        \"lp_range\": 32767, \
+        \"mono\": false, \
+        \"region_detect\": false, \
+        \"vdp_mode\": 0, \
+        \"master_clock\": 0, \
+        \"force_dtack\": false, \
+        \"addr_error\": false, \
+        \"no_sprite_limit\": true \
     } \
 }";
 

@@ -255,20 +255,16 @@ char *get_diff_path() {
 int main (int argc, char *argv[]) {
   char *rom_path = NULL;
   char *diff_path = NULL;
+  char *config_path = "./config.json";
 
   #ifdef __EMSCRIPTEN__
     rom_path = "/home/web_user/rom.bin";
     diff_path = "/patch.ips";
-  #endif
-
-  char *config_path = "./config.json";
-
-  // This isn't just disabled cause emscripten doesnt take args (kinda)
-  // It's disabled because it causes a crash for some reason
-  #ifndef __EMSCRIPTEN__
+  #else
+    // This isn't just disabled cause emscripten doesnt take args (kinda)
+    // It's disabled because it causes a crash for some reason
     struct argparse_option options[] = {
       OPT_HELP(),
-      OPT_STRING('r', "rom", &rom_path, "Path to ROM file"),
       OPT_STRING('p', "patch", &diff_path, "Path to IPS patch file"),
       OPT_STRING('c', "config", &config_path, "Path to config file"),
       OPT_END(),
@@ -284,8 +280,8 @@ int main (int argc, char *argv[]) {
     argc = argparse_parse(&argparse, argc, (const char **)argv);
   #endif
 
-  if ((rom_path == NULL) && (argc > 1))
-    rom_path = (char *)argv[1];
+  if ((rom_path == NULL) && (argc > 0))
+    rom_path = (char *)argv[0];
 
   #ifdef ENABLE_NXLINK
   socketInitializeDefault();
