@@ -20,7 +20,12 @@ jobs:
       run: sudo apt update
     - name: apt install
       run: sudo apt install libsdl2-dev libsdl2-image-dev libopusfile-dev libmpg123-dev libflac-dev libvorbis-dev libopus-dev libjansson-dev
-    - name: make
-      run: make
     - name: make clean
       run: make clean
+    - name: make
+      run: make
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifact
+        path: bin/
