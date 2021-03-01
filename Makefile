@@ -37,7 +37,7 @@ VERBOSE  ?= 0
 PROFILE	 ?= 0
 STRIP	 ?= strip
 
-CFLAGS += -mtune=generic
+CFLAGS += -msse4.1
 
 # =============================================================================
 # Detect default platform if not explicitly specified
