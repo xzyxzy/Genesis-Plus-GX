@@ -12,9 +12,10 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
-    - name: git submodule update
-      run: git submodule update --recursive
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      uses: textbook/git-checkout-submodule-action@2.1.1
     - name: apt update
       run: sudo apt update
     - name: apt install
