@@ -9,10 +9,15 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
-    
+    - name: apt update
+      run: sudo apt update
+    - name: apt install
+      run: sudo apt install libsdl2-dev libsdl2-image-dev libopusfile-dev libmpg123-dev libflac-dev libvorbis-dev libopus-dev libjansson-dev
     - name: make
       run: make
+    - name: make clean
+      run: make clean
