@@ -37,6 +37,8 @@ VERBOSE  ?= 0
 PROFILE	 ?= 0
 STRIP	 ?= strip
 
+CFLAGS += -mtune=generic
+
 # =============================================================================
 # Detect default platform if not explicitly specified
 # =============================================================================
