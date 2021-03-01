@@ -452,6 +452,11 @@ unsigned int ctrl_io_read_byte(unsigned int address)
       return m68k_read_bus_8(address);
     }
 
+    case 0xFF: /* Emulator identification */
+    {
+      return 0x52CC;
+    }
+
     default:  /* Invalid address */
     {
       return m68k_lockup_r_8(address);

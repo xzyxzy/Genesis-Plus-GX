@@ -190,7 +190,6 @@ void mainloop() {
       nanosleep(&spec, &spec);
       return;
   }
-  gamehacks_update();
 
   #ifdef HAVE_OVERCLOCK
     /* update overclock delay */
