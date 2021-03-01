@@ -13,6 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: git submodule update
+    - run: git submodule update --recursive
     - name: apt update
       run: sudo apt update
     - name: apt install
