@@ -15,7 +15,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v2
     - name: Checkout submodules
-      uses: textbook/git-checkout-submodule-action@2.1.1
+      run: git submodule update --init --recursive
     - name: apt update
       run: sudo apt update
     - name: apt install
@@ -27,5 +27,5 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: artifact
+        name: artifacts
         path: bin/
