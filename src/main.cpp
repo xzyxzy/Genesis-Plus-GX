@@ -126,7 +126,7 @@ static void update_overclock(void)
 #ifdef __EMSCRIPTEN__
   #define PATH_SRAM_ROOT "/home/web_user/"
 #elif defined(__vita__)
-  #define PATH_SRAM_ROOT "ux0:data/gpgxw/"
+  #define PATH_SRAM_ROOT "ux0:data/s2cc/"
 #else
   #define PATH_SRAM_ROOT "./"
 #endif
@@ -258,7 +258,7 @@ int main (int argc, char *argv[]) {
   char *rom_path = NULL;
   char *diff_path = NULL;
 #if defined(__vita__)
-  char *config_path = "ux0:/data/gpgxw/config.json";
+  char *config_path = "ux0:/data/s2cc/config.json";
 #else
   char *config_path = "./config.json";
 #endif
@@ -267,8 +267,8 @@ int main (int argc, char *argv[]) {
     rom_path = "/home/web_user/rom.bin";
     diff_path = "/patch.ips";
   #elif defined(__vita__)
-    rom_path = "ux0:/data/gpgxw/rom.bin";
-    diff_path = "ux0:/data/gpgxw/patch.ips";
+    rom_path = "ux0:/data/s2cc/rom.bin";
+    diff_path = "ux0:/data/s2cc/patch.ips";
   #else
     // This isn't just disabled cause emscripten doesnt take args (kinda)
     // It's disabled because it causes a crash for some reason
