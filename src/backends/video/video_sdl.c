@@ -40,6 +40,10 @@ int Backend_Video_Init() {
   }
 
   sdl_video.surf_screen = SDL_SetVideoMode(VIDEO_WIDTH, VIDEO_HEIGHT, 16, SDL_SWSURFACE);
+  if (!sdl_video.surf_screen) {
+    printf("%s\n", SDL_GetError());
+    exit(0);
+  }
   sdl_video.surf_bitmap = SDL_CreateRGBSurface(SDL_SWSURFACE, 720, 576, 16, 0, 0, 0, 0);
   sdl_video.frames_rendered = 0;
   SDL_ShowCursor(0);
@@ -114,5 +118,9 @@ int Backend_Video_Clear() {
   return 1;
 }
 
-int Backend_Video_SetVsync(int vsync) { return -1 };
-int Backend_Video_GetRefreshRate()  { return -1 };
+int Backend_Video_SetVsync(int vsync) { return -1; };
+int Backend_Video_GetRefreshRate()  { return -1; };
+
+int Backend_Video_GetActive() {
+  return 1;
+}

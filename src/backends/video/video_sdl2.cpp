@@ -19,7 +19,8 @@
 #elif defined(USE_16BPP_RENDERING)
   #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB565
 #elif defined(USE_32BPP_RENDERING)
-  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
+//  #define SURFACE_FORMAT SDL_PIXELFORMAT_RGB888
+  #define SURFACE_FORMAT SDL_PIXELFORMAT_ARGB8888
 #endif
 
 SDL_Window* sdl_window;
@@ -92,8 +93,8 @@ int Backend_Video_Init() {
     "Loading...",
     SDL_WINDOWPOS_UNDEFINED,
     SDL_WINDOWPOS_UNDEFINED,
-    VIDEO_WIDTH * WINDOW_SCALE,
-    VIDEO_HEIGHT * WINDOW_SCALE,
+    960,//VIDEO_WIDTH * WINDOW_SCALE,
+    544,//VIDEO_HEIGHT * WINDOW_SCALE,
     window_flags
   );
 
@@ -183,9 +184,9 @@ void Update_Texture() {
   /* Set up a destination surface for the texture update */
   SDL_LockSurface(sdl_bitmap);
   SDL_Surface *temp = SDL_ConvertSurface(sdl_bitmap, dst_fmt, 0);
-  SDL_UnlockSurface(sdl_bitmap);
+//  SDL_UnlockSurface(sdl_bitmap);
 
-  Uint32 key_color = SDL_MapRGB(
+/*  Uint32 key_color = SDL_MapRGB(
     temp->format,
     0xFF, 0x00, 0xFF
   );
@@ -195,12 +196,15 @@ void Update_Texture() {
     if (((Uint32*)temp->pixels)[i] != key_color) continue;
     ((Uint32*)temp->pixels)[i] &= 0x00FFFFFF; 
   }
-
-  SDL_UpdateTexture(sdl_texture, NULL, temp->pixels, temp->pitch);
-  SDL_FreeSurface(temp);
+*/
+  SDL_UpdateTexture(sdl_texture, NULL, sdl_bitmap->pixels, sdl_bitmap->pitch);
+//  SDL_FreeSurface(temp);
+  SDL_UnlockSurface(sdl_bitmap);
 }
 
 void Update_Renderer() {
+  SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
+  SDL_RenderClear(sdl_renderer);
   if (option_mirrormode) {
     SDL_RenderCopyEx(
       sdl_renderer,

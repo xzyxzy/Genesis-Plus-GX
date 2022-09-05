@@ -4,7 +4,7 @@
 #define VIDEO_WIDTH  400
 #define VIDEO_HEIGHT 224
 
-#define WINDOW_SCALE 3
+#define WINDOW_SCALE 2
 
 extern int option_mirrormode;
 extern int option_scaling;

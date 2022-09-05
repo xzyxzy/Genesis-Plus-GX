@@ -13,8 +13,8 @@
 #endif
 
 // SDL_GameController* controller;
-// int Backend_Input_Update() {
-//   // const uint8 *keystate = SDL_GetKeyboardState(NULL);
+int Backend_Input_Update() {
+//  const uint8 *keystate = SDL_GetKeyboardState(NULL);
 
 //   /* reset input */
 //   input.pad[joynum] = 0;
@@ -132,11 +132,11 @@
 //     if (val_left) input.pad[joynum] |= INPUT_RIGHT;
 //     if (val_right) input.pad[joynum] |= INPUT_LEFT;
 //   }
-//   return 1;
-// }
+  return 1;
+}
 
 int Backend_Input_Init() {
-  // SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+   SDL_InitSubSystem(SDL_INIT_JOYSTICK);
   // SDL_JoystickEventState(SDL_ENABLE);
   // SDL_JoystickOpen(0);
   // controller = SDL_GameControllerOpen(0);
@@ -149,7 +149,7 @@ int Backend_Input_Close() {
 }
 
 void key_callback(int key, int scancode, int action) {
-  char *keyname = (char *)SDL_GetKeyName(key, 0);
+  char *keyname = (char *)SDL_GetKeyName(key);
 	if (!input_process_keycode(keyname, action)) {
 		char buffer[5];
 		if (key >= 10000) return;
